@@ -7,9 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "postinstall": "prisma generate",
+    "db:migrate": "prisma migrate dev",
     "db:seed": "npx ts-node --skip-project prisma/seed.ts",
     "db:push": "npx prisma migrate dev",
-    "db:studio": "npx prisma studio"
+    "db:studio": "npx prisma studio",
+    "setup": "prisma migrate dev && npx ts-node --skip-project prisma/seed.ts"
   },
   "prisma": {
     "seed": "npx ts-node --skip-project prisma/seed.ts"

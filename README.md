@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TipEasy — Propinas digitales por QR
 
-## Getting Started
+La forma más fácil de dar y recibir propinas digitales.
 
-First, run the development server:
+## Setup local (Windows / Mac / Linux)
 
 ```bash
+# 1. Clonar el repositorio
+git clone https://github.com/fedeben1976/tipeasy-mvp
+cd tipeasy-mvp
+git checkout claude/tipeasy-app-build-qsYB5
+
+# 2. Instalar dependencias (genera el cliente de Prisma automáticamente)
+npm install
+
+# 3. Crear el archivo de variables de entorno
+cp .env.example .env
+
+# 4. Crear la base de datos y cargar datos de demo
+npm run setup
+
+# 5. Iniciar el servidor
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abrí [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Cuenta de demo
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Campo | Valor |
+|-------|-------|
+| Email | `juan@demo.com` |
+| Contraseña | `demo1234` |
+| Página pública | `http://localhost:3000/tip/juan-perez` |
 
-## Learn More
+## Flujo de demo para presentar
 
-To learn more about Next.js, take a look at the following resources:
+1. Abrí `http://localhost:3000/tip/juan-perez` (o escaneá el QR desde el dashboard)
+2. Elegí un monto de propina
+3. Tocá "Enviar propina"
+4. En el simulador de pago, tocá "Aprobar pago"
+5. Ves la pantalla de confirmación con animación
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Stack
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Next.js 16** + TypeScript + Tailwind CSS
+- **Prisma v7** + SQLite (local) / PostgreSQL (producción)
+- **NextAuth.js** — autenticación
+- **Mercado Pago** — integración de pagos (modo demo incluido)
 
-## Deploy on Vercel
+## Variables de entorno
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Ver `.env.example` para todas las variables disponibles.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Para conectar Mercado Pago real, agregar en `.env`:
+```
+MP_ACCESS_TOKEN=tu_access_token_de_mercadopago
+```
