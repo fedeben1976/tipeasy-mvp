@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  phone         String?
+  passwordHash  String?
+  displayName   String
+  profileImage  String?
+  userType      String    @default("receiver")
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+
+  receiverProfile  ReceiverProfile?
+  notifications    Notification[]
+  sentTips         Tip[]            @relation("SenderTips")
+  accounts         Account[]
+  sessions         Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model ReceiverProfile {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  publicSlug       String   @unique
+  displayName      String
+  category         String
+  description      String?
+  city             String?
+  country          String   @default("AR")
+  profileImage     String?
+  qrCodeUrl        String?
+  publicUrl        String
+  suggestedAmounts String   @default("[500,1000,2000,5000]")
+  allowCustom      Boolean  @default(true)
+  minAmount        Int      @default(100)
+  maxAmount        Int      @default(100000)
+  currency         String   @default("ARS")
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tips Tip[]
+}
+
+model Tip {
+  id                  String    @id @default(cuid())
+  receiverProfileId   String
+  senderUserId        String?
+  senderName          String?
+  senderEmail         String?
+  amount              Int
+  currency            String    @default("ARS")
+  message             String?
+  status              String    @default("pending")
+  paymentProvider     String    @default("mock")
+  paymentProviderId   String?
+  paymentPreferenceId String?
+  paymentUrl          String?
+  failureReason       String?
+  createdAt           DateTime  @default(now())
+  approvedAt          DateTime?
+  rejectedAt          DateTime?
+  updatedAt           DateTime  @updatedAt
+
+  receiverProfile ReceiverProfile @relation(fields: [receiverProfileId], references: [id])
+  senderUser      User?           @relation("SenderTips", fields: [senderUserId], references: [id])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  readAt    DateTime?
+  metadata  String?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
