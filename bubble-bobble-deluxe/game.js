@@ -43,6 +43,77 @@
     gameover: () => beep(200, 0.6, 'sawtooth', 0.12, 50),
   };
 
+  // ---------- Music: synthesized 80s-arcade chiptune loop, no audio files ----------
+  function playTone(freq, time, dur, type, peakVol) {
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.linearRampToValueAtTime(peakVol, time + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+    osc.connect(gain).connect(actx.destination);
+    osc.start(time);
+    osc.stop(time + dur + 0.02);
+  }
+  function playKick(time) {
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, time);
+    osc.frequency.exponentialRampToValueAtTime(42, time + 0.12);
+    gain.gain.setValueAtTime(0.22, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+    osc.connect(gain).connect(actx.destination);
+    osc.start(time);
+    osc.stop(time + 0.16);
+  }
+  const music = (() => {
+    const SCALE = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25]; // C major pentatonic-ish, cute & bright
+    const bassPattern = [0, 0, -1, 0, 2, 2, -1, 2, 0, 0, -1, 0, 3, 3, -1, 2];
+    const leadPattern = [4, -1, 6, -1, 7, 6, 4, -1, 5, -1, 7, -1, 6, 4, 2, -1];
+    const tempo = 132;
+    const stepDur = 60 / tempo / 2;
+    let playing = false, step = 0, nextTime = 0, timer = null;
+
+    function freqOf(idx, octave) {
+      if (idx < 0) return null;
+      return SCALE[idx % SCALE.length] * Math.pow(2, octave);
+    }
+
+    function scheduler() {
+      if (!playing) return;
+      const lookahead = 0.2;
+      while (nextTime < actx.currentTime + lookahead) {
+        const intensity = frenzyActive > 0 ? 1 : 0;
+        const bIdx = bassPattern[step % bassPattern.length];
+        const lIdx = leadPattern[step % leadPattern.length];
+        const bf = freqOf(bIdx, -1);
+        if (bf) playTone(bf, nextTime, stepDur * 0.85, 'triangle', 0.05 + intensity * 0.02);
+        const lf = freqOf(lIdx, intensity);
+        if (lf) playTone(lf, nextTime, stepDur * 0.7, 'square', 0.04 + intensity * 0.02);
+        if (step % 4 === 0) playKick(nextTime);
+        nextTime += stepDur * (intensity ? 0.7 : 1); // frenzy speeds the beat up
+        step++;
+      }
+      timer = setTimeout(scheduler, 60);
+    }
+
+    return {
+      start() {
+        if (playing) return;
+        playing = true;
+        step = 0;
+        nextTime = actx.currentTime + 0.05;
+        scheduler();
+      },
+      stop() {
+        playing = false;
+        if (timer) clearTimeout(timer);
+      },
+    };
+  })();
+
   // ---------- Input ----------
   const keys = {};
   window.addEventListener('keydown', (e) => { keys[e.code] = true; });
@@ -117,7 +188,7 @@
   function spawnPlayer() {
     player = {
       x: 380, y: 500, w: 28, h: 32, vx: 0, vy: 0,
-      facing: 1, onGround: false, shootCd: 0, invuln: 0,
+      facing: 1, onGround: false, shootCd: 0, invuln: 0, mouthOpen: 0, walkPhase: 0,
     };
   }
 
@@ -180,6 +251,7 @@
     overlay.classList.remove('show');
     overlay.classList.add('hidden');
     gameoverEl.classList.add('hidden');
+    music.start();
   }
 
   function nextLevel() {
@@ -269,6 +341,8 @@
     if (keys['ArrowLeft'] || keys['KeyA']) { player.vx = -speed; player.facing = -1; moving = true; }
     else if (keys['ArrowRight'] || keys['KeyD']) { player.vx = speed; player.facing = 1; moving = true; }
     else player.vx = 0;
+    if (moving && player.onGround) player.walkPhase += dt * 9;
+    if (player.mouthOpen > 0) player.mouthOpen -= dt;
 
     if ((keys['ArrowUp'] || keys['Space'] || keys['KeyW']) && player.onGround) {
       player.vy = JUMP_VELOCITY;
@@ -306,14 +380,16 @@
 
   function shootBubble() {
     sfx.shoot();
+    player.mouthOpen = 0.18;
     const speed = frenzyActive > 0 ? 460 : 340;
     bubbles.push({
-      x: player.x + player.w / 2 - 10,
-      y: player.y + 6,
+      x: player.x + player.w / 2 - 11 + player.facing * 14,
+      y: player.y + player.h * 0.42,
       w: 22, h: 22,
       vx: player.facing * speed,
-      vy: -40,
-      life: 1.4,
+      vy: 0,
+      riseDelay: 0.3, // travels forward first, then floats up — like the arcade original
+      life: 1.6,
       special: frenzyActive > 0 && Math.random() < 0.4 ? 'rainbow' : 'normal',
     });
   }
@@ -321,12 +397,17 @@
   function updateBubbles(dt) {
     for (let i = bubbles.length - 1; i >= 0; i--) {
       const b = bubbles[i];
-      b.vy -= 260 * dt; // bubbles curve upward like the original
-      b.vy = Math.max(b.vy, -120);
+      if (b.riseDelay > 0) {
+        b.riseDelay -= dt;
+        b.vx *= 0.995;
+      } else {
+        b.vy -= 220 * dt; // once the forward push fades, it floats upward
+        b.vy = Math.max(b.vy, -110);
+        b.vx *= 0.96;
+      }
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.life -= dt;
-      b.vx *= 0.985;
 
       let hit = false;
       for (let j = enemies.length - 1; j >= 0; j--) {
@@ -476,6 +557,7 @@
 
   function endGame() {
     state = 'gameover';
+    music.stop();
     sfx.gameover();
     finalScoreEl.textContent = `Puntaje final: ${score} — Nivel ${level}`;
     gameoverEl.classList.remove('hidden');
@@ -512,10 +594,27 @@
     ctx.fill();
   }
 
-  function drawEyes(cx, cy, spacing, eyeR, lookDir, blinkPhase) {
-    const blink = Math.max(0.15, Math.abs(Math.sin(blinkPhase)));
+  // Big anime-style sparkle eyes. mode: 'round' | 'happy' (closed smiling arc) | 'sly' (half-lid mischief)
+  function drawEyes(cx, cy, spacing, eyeR, lookDir, blinkPhase, mode = 'round') {
+    const blink = mode === 'happy' ? 0 : Math.max(0.15, Math.abs(Math.sin(blinkPhase)));
     for (const side of [-1, 1]) {
       const ex = cx + side * spacing;
+      if (mode === 'happy') {
+        ctx.strokeStyle = '#1a1a2e';
+        ctx.lineWidth = Math.max(1.6, eyeR * 0.35);
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(ex, cy + eyeR * 0.3, eyeR, Math.PI * 1.1, Math.PI * 1.9);
+        ctx.stroke();
+        continue;
+      }
+      ctx.save();
+      if (mode === 'sly') {
+        // half-lidded almond eye
+        ctx.beginPath();
+        ctx.ellipse(ex, cy, eyeR, eyeR * 0.62, 0, 0, Math.PI * 2);
+        ctx.clip();
+      }
       ctx.fillStyle = '#fff';
       ctx.beginPath();
       ctx.ellipse(ex, cy, eyeR, eyeR * blink, 0, 0, Math.PI * 2);
@@ -523,12 +622,24 @@
       if (blink > 0.3) {
         ctx.fillStyle = '#1a1a2e';
         ctx.beginPath();
-        ctx.arc(ex + lookDir * eyeR * 0.4, cy + eyeR * 0.15, eyeR * 0.45, 0, Math.PI * 2);
+        ctx.arc(ex + lookDir * eyeR * 0.35, cy + eyeR * 0.18, eyeR * 0.55, 0, Math.PI * 2);
         ctx.fill();
+        // double anime sparkle highlight
         ctx.fillStyle = '#fff';
         ctx.beginPath();
-        ctx.arc(ex + lookDir * eyeR * 0.4 - eyeR * 0.15, cy - eyeR * 0.15, eyeR * 0.15, 0, Math.PI * 2);
+        ctx.arc(ex + lookDir * eyeR * 0.35 - eyeR * 0.18, cy - eyeR * 0.18, eyeR * 0.2, 0, Math.PI * 2);
         ctx.fill();
+        ctx.beginPath();
+        ctx.arc(ex + lookDir * eyeR * 0.35 + eyeR * 0.22, cy + eyeR * 0.32, eyeR * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      if (mode === 'sly') {
+        ctx.strokeStyle = '#1a1a2e';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.ellipse(ex, cy, eyeR, eyeR * 0.62, 0, 0, Math.PI * 2);
+        ctx.stroke();
       }
     }
   }
@@ -594,53 +705,102 @@
     ctx.save();
     if (player.invuln > 0 && Math.floor(player.invuln * 10) % 2 === 0) ctx.globalAlpha = 0.35;
     const cx = player.x + player.w / 2;
-    const cy = player.y + player.h / 2;
-    const squish = player.onGround ? 1 + Math.sin(clock * 10) * 0.02 : 1;
+    const headCy = player.y + player.h * 0.42;
+    const bodyCy = player.y + player.h * 0.82;
+    const facing = player.facing;
+    const headR = player.w * 0.62;
+    const bob = player.onGround ? Math.sin(player.walkPhase) * 1.6 : 0;
+    const frenzy = frenzyActive > 0;
 
-    // feet
-    ctx.fillStyle = '#1a8f4a';
+    const mainC = frenzy ? ['#fff6b0', '#ffb800'] : ['#c8ffe6', '#3ddc84'];
+    const darkC = frenzy ? '#c97e00' : '#1a8f4a';
+
+    // tail, curling out behind the facing direction
+    ctx.strokeStyle = mainC[1];
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.ellipse(cx - 9, player.y + player.h - 2, 7, 5, 0, 0, Math.PI * 2);
-    ctx.ellipse(cx + 9, player.y + player.h - 2, 7, 5, 0, 0, Math.PI * 2);
+    ctx.moveTo(cx - facing * headR * 0.6, bodyCy + 6);
+    ctx.quadraticCurveTo(
+      cx - facing * (headR * 1.5), bodyCy + 14 + bob,
+      cx - facing * (headR * 1.1), bodyCy - 6
+    );
+    ctx.stroke();
+    ctx.fillStyle = '#ff8fc7';
+    ctx.beginPath();
+    ctx.arc(cx - facing * (headR * 1.1), bodyCy - 6, 4, 0, Math.PI * 2);
     ctx.fill();
 
-    // body
-    const bodyGrad = ctx.createRadialGradient(cx - 6, cy - 10, 4, cx, cy, player.w);
-    if (frenzyActive > 0) {
-      bodyGrad.addColorStop(0, '#fff6b0');
-      bodyGrad.addColorStop(1, '#ffb800');
-    } else {
-      bodyGrad.addColorStop(0, '#b6ffd8');
-      bodyGrad.addColorStop(1, '#3ddc84');
+    // little feet
+    ctx.fillStyle = darkC;
+    const stepOffset = player.onGround ? Math.sin(player.walkPhase) * 4 : 0;
+    ctx.beginPath();
+    ctx.ellipse(cx - 8 + stepOffset, player.y + player.h - 2, 6.5, 4.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + 8 - stepOffset, player.y + player.h - 2, 6.5, 4.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // small wings peeking from the back
+    ctx.fillStyle = `rgba(255,255,255,0.6)`;
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(cx + side * headR * 0.5, bodyCy - 4);
+      ctx.quadraticCurveTo(cx + side * headR * 1.3, bodyCy - 16, cx + side * headR * 0.9, bodyCy + 2);
+      ctx.closePath();
+      ctx.fill();
     }
+
+    // round chubby body
+    const bodyGrad = ctx.createRadialGradient(cx - 6, headCy - 8, 4, cx, headCy, player.w * 1.4);
+    bodyGrad.addColorStop(0, mainC[0]);
+    bodyGrad.addColorStop(1, mainC[1]);
     ctx.fillStyle = bodyGrad;
     ctx.beginPath();
-    ctx.ellipse(cx, cy + 2, (player.w / 2 + 3) * squish, player.h / 2 + 2, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, headCy, headR, headR * 0.95, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(20,90,50,0.5)';
-    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(cx, bodyCy - 2, headR * 0.7, headR * 0.55, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(20,90,50,0.45)';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.ellipse(cx, headCy, headR, headR * 0.95, 0, 0, Math.PI * 2);
     ctx.stroke();
 
-    // little antenna
-    ctx.strokeStyle = frenzyActive > 0 ? '#ffb800' : '#3ddc84';
-    ctx.lineWidth = 3;
+    // cream belly patch
+    ctx.fillStyle = 'rgba(255,250,235,0.9)';
     ctx.beginPath();
-    ctx.moveTo(cx, player.y - 2);
-    ctx.lineTo(cx + player.facing * 4, player.y - 12);
-    ctx.stroke();
-    ctx.fillStyle = '#ff6fae';
-    ctx.beginPath();
-    ctx.arc(cx + player.facing * 4, player.y - 12, 4, 0, Math.PI * 2);
+    ctx.ellipse(cx, bodyCy, headR * 0.42, headR * 0.36, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // eyes
-    drawEyes(cx, cy - 4, 7, 6, player.facing, clock * 1.2);
+    // soft dragon spikes on top of head
+    ctx.fillStyle = darkC;
+    for (let i = -1; i <= 1; i++) {
+      const sx = cx + i * headR * 0.32;
+      const sy = headCy - headR * 0.78;
+      ctx.beginPath();
+      ctx.moveTo(sx - 4, sy + 8);
+      ctx.quadraticCurveTo(sx, sy - 6 - Math.abs(i) * 2, sx + 4, sy + 8);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // big sparkly eyes
+    drawEyes(cx + facing * 2, headCy - headR * 0.05, headR * 0.36, headR * 0.3, facing, clock * 1.1, 'round');
 
     // blush
     ctx.fillStyle = 'rgba(255,120,160,0.55)';
     ctx.beginPath();
-    ctx.ellipse(cx - 12, cy + 6, 4, 2.5, 0, 0, Math.PI * 2);
-    ctx.ellipse(cx + 12, cy + 6, 4, 2.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx - headR * 0.62, headCy + headR * 0.25, 4, 2.6, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + headR * 0.62, headCy + headR * 0.25, 4, 2.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // mouth — opens into a cute "o" when shooting a bubble
+    const mouthX = cx + facing * headR * 0.75;
+    const mouthY = headCy + headR * 0.32;
+    const openness = Math.min(1, player.mouthOpen / 0.18);
+    ctx.fillStyle = '#c2425f';
+    ctx.beginPath();
+    ctx.ellipse(mouthX, mouthY, 3 + openness * 3, 2 + openness * 5, 0, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.restore();
@@ -649,20 +809,112 @@
   function drawCuteMonster(en) {
     const cx = en.x + en.w / 2;
     const cy = en.y + en.h / 2;
+    const dir = Math.sign(en.vx) || 1;
     const bob = Math.sin(clock * 5 + en.x) * 2;
 
     ctx.save();
     ctx.translate(0, bob);
 
-    // ears / horns
-    ctx.fillStyle = en.color;
-    if (en.type === 'fast') {
+    if (en.type === 'bubble') {
+      // "Puyon" round blob: flat-bottomed teardrop body, tiny stub feet, bow accent, happy face
+      const grad = ctx.createRadialGradient(cx - en.w * 0.15, cy - en.h * 0.25, 3, cx, cy, en.w * 0.75);
+      grad.addColorStop(0, '#eafffa');
+      grad.addColorStop(0.3, en.color);
+      grad.addColorStop(1, en.color);
+      ctx.fillStyle = grad;
       ctx.beginPath();
-      ctx.moveTo(cx - en.w * 0.3, cy - en.h * 0.4);
-      ctx.lineTo(cx - en.w * 0.15, cy - en.h * 0.9);
-      ctx.lineTo(cx, cy - en.h * 0.4);
+      ctx.moveTo(cx - en.w * 0.5, cy + en.h * 0.3);
+      ctx.quadraticCurveTo(cx - en.w * 0.55, cy - en.h * 0.55, cx, cy - en.h * 0.62);
+      ctx.quadraticCurveTo(cx + en.w * 0.55, cy - en.h * 0.55, cx + en.w * 0.5, cy + en.h * 0.3);
+      ctx.quadraticCurveTo(cx, cy + en.h * 0.55, cx - en.w * 0.5, cy + en.h * 0.3);
       ctx.fill();
-    } else if (en.type === 'boss') {
+      ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // stub feet
+      ctx.fillStyle = en.color;
+      ctx.beginPath();
+      ctx.ellipse(cx - en.w * 0.22, cy + en.h * 0.42, en.w * 0.13, en.h * 0.12, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx + en.w * 0.22, cy + en.h * 0.42, en.w * 0.13, en.h * 0.12, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // bow
+      ctx.fillStyle = '#ff8fc7';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - en.h * 0.62);
+      ctx.lineTo(cx - 6, cy - en.h * 0.62 - 5);
+      ctx.lineTo(cx - 6, cy - en.h * 0.62 + 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - en.h * 0.62);
+      ctx.lineTo(cx + 6, cy - en.h * 0.62 - 5);
+      ctx.lineTo(cx + 6, cy - en.h * 0.62 + 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx, cy - en.h * 0.62, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      drawEyes(cx, cy - en.h * 0.05, en.w * 0.2, en.w * 0.17, dir, clock * 1.6 + cx, en.angry ? 'round' : 'happy');
+    } else if (en.type === 'fast') {
+      // mischievous fox: pointed ears, fluffy tail, sly half-lid eyes, smug grin
+      ctx.fillStyle = en.color;
+      ctx.beginPath();
+      ctx.moveTo(cx - en.w * 0.32, cy - en.h * 0.32);
+      ctx.lineTo(cx - en.w * 0.14, cy - en.h * 0.95);
+      ctx.lineTo(cx + en.w * 0.02, cy - en.h * 0.3);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx + en.w * 0.32, cy - en.h * 0.32);
+      ctx.lineTo(cx + en.w * 0.14, cy - en.h * 0.95);
+      ctx.lineTo(cx - en.w * 0.02, cy - en.h * 0.3);
+      ctx.fill();
+      ctx.fillStyle = '#3a1f12';
+      ctx.beginPath();
+      ctx.moveTo(cx - en.w * 0.2, cy - en.h * 0.45);
+      ctx.lineTo(cx - en.w * 0.13, cy - en.h * 0.78);
+      ctx.lineTo(cx - en.w * 0.05, cy - en.h * 0.42);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx + en.w * 0.2, cy - en.h * 0.45);
+      ctx.lineTo(cx + en.w * 0.13, cy - en.h * 0.78);
+      ctx.lineTo(cx + en.w * 0.05, cy - en.h * 0.42);
+      ctx.fill();
+      // fluffy tail trailing opposite movement direction
+      ctx.fillStyle = en.color;
+      ctx.beginPath();
+      ctx.ellipse(cx - dir * en.w * 0.6, cy + en.h * 0.1, en.w * 0.22, en.h * 0.16, dir * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.ellipse(cx - dir * en.w * 0.78, cy + en.h * 0.06, en.w * 0.1, en.h * 0.08, dir * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      const grad = ctx.createRadialGradient(cx - en.w * 0.15, cy - en.h * 0.2, 3, cx, cy, en.w * 0.7);
+      grad.addColorStop(0, '#fff3e0');
+      grad.addColorStop(0.3, en.color);
+      grad.addColorStop(1, en.color);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, en.w / 2, en.h / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // white muzzle patch
+      ctx.fillStyle = 'rgba(255,250,240,0.9)';
+      ctx.beginPath();
+      ctx.ellipse(cx + dir * en.w * 0.18, cy + en.h * 0.14, en.w * 0.28, en.h * 0.22, 0, 0, Math.PI * 2);
+      ctx.fill();
+      drawEyes(cx, cy - en.h * 0.08, en.w * 0.2, en.w * 0.15, dir, clock * 1.6 + cx, en.angry ? 'round' : 'sly');
+      // smug fang
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.moveTo(cx + dir * en.w * 0.26, cy + en.h * 0.2);
+      ctx.lineTo(cx + dir * en.w * 0.22, cy + en.h * 0.32);
+      ctx.lineTo(cx + dir * en.w * 0.3, cy + en.h * 0.24);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      // dragon-king boss: crown, soft horns, big eyes, expressive brows
       ctx.fillStyle = '#ffd54a';
       for (let i = -1; i <= 1; i++) {
         ctx.beginPath();
@@ -671,39 +923,41 @@
         ctx.lineTo(cx + i * en.w * 0.25 + 6, cy - en.h * 0.45);
         ctx.fill();
       }
-    }
-
-    // body
-    const grad = ctx.createRadialGradient(cx - en.w * 0.15, cy - en.h * 0.2, 3, cx, cy, en.w * 0.7);
-    grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(0.25, en.color);
-    grad.addColorStop(1, en.color);
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, en.w / 2, en.h / 2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    drawEyes(cx, cy - en.h * 0.08, en.w * 0.2, en.w * 0.16, Math.sign(en.vx) || 1, clock * 1.6 + cx);
-
-    // angry eyebrows / mouth
-    ctx.strokeStyle = '#1a1a2e';
-    ctx.lineWidth = 2;
-    if (en.angry) {
+      ctx.fillStyle = '#7a1fb0';
       ctx.beginPath();
-      ctx.moveTo(cx - en.w * 0.28, cy - en.h * 0.28);
-      ctx.lineTo(cx - en.w * 0.1, cy - en.h * 0.2);
-      ctx.moveTo(cx + en.w * 0.28, cy - en.h * 0.28);
-      ctx.lineTo(cx + en.w * 0.1, cy - en.h * 0.2);
-      ctx.stroke();
-    }
-    ctx.beginPath();
-    ctx.arc(cx, cy + en.h * 0.18, en.w * 0.14, 0.15 * Math.PI, 0.85 * Math.PI);
-    ctx.stroke();
+      ctx.moveTo(cx - en.w * 0.34, cy - en.h * 0.2);
+      ctx.quadraticCurveTo(cx - en.w * 0.5, cy - en.h * 0.42, cx - en.w * 0.3, cy - en.h * 0.5);
+      ctx.quadraticCurveTo(cx - en.w * 0.32, cy - en.h * 0.3, cx - en.w * 0.18, cy - en.h * 0.22);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx + en.w * 0.34, cy - en.h * 0.2);
+      ctx.quadraticCurveTo(cx + en.w * 0.5, cy - en.h * 0.42, cx + en.w * 0.3, cy - en.h * 0.5);
+      ctx.quadraticCurveTo(cx + en.w * 0.32, cy - en.h * 0.3, cx + en.w * 0.18, cy - en.h * 0.22);
+      ctx.fill();
 
-    if (en.type === 'boss') {
+      const grad = ctx.createRadialGradient(cx - en.w * 0.15, cy - en.h * 0.2, 3, cx, cy, en.w * 0.7);
+      grad.addColorStop(0, '#f3e0ff');
+      grad.addColorStop(0.25, en.color);
+      grad.addColorStop(1, en.color);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, en.w / 2, en.h / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      drawEyes(cx, cy - en.h * 0.08, en.w * 0.22, en.w * 0.18, dir, clock * 1.6 + cx, 'round');
+      ctx.strokeStyle = '#1a1a2e';
+      ctx.lineWidth = 2.4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx - en.w * 0.32, cy - en.h * 0.3);
+      ctx.lineTo(cx - en.w * 0.12, cy - en.h * 0.22);
+      ctx.moveTo(cx + en.w * 0.32, cy - en.h * 0.3);
+      ctx.lineTo(cx + en.w * 0.12, cy - en.h * 0.22);
+      ctx.stroke();
+
       const barW = en.w + 10;
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
       roundRect(en.x - 5, en.y - 18, barW, 8, 4);
@@ -711,6 +965,21 @@
       ctx.fillStyle = '#ff5577';
       roundRect(en.x - 5, en.y - 18, barW * Math.max(0, en.hp / en.maxHp), 8, 4);
       ctx.fill();
+    }
+
+    // shared angry brows + mouth for any escaped/aggravated enemy
+    if (en.angry) {
+      ctx.strokeStyle = '#1a1a2e';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx - en.w * 0.28, cy - en.h * 0.28);
+      ctx.lineTo(cx - en.w * 0.1, cy - en.h * 0.2);
+      ctx.moveTo(cx + en.w * 0.28, cy - en.h * 0.28);
+      ctx.lineTo(cx + en.w * 0.1, cy - en.h * 0.2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy + en.h * 0.18, en.w * 0.14, 0.15 * Math.PI, 0.85 * Math.PI);
+      ctx.stroke();
     }
     ctx.restore();
   }
