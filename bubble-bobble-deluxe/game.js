@@ -100,9 +100,12 @@
   let player = { x: -999, y: -999, w: 0, h: 0, facing: 1, invuln: 0 };
   let enemies = [], bubbles = [], trapped = [], fruits = [];
   let enemiesToSpawnTotal = 0;
+  let clock = 0;
 
-  const GRAVITY = 1400;
+  const GRAVITY = 1300;
+  const JUMP_VELOCITY = -680;
   const FRENZY_MAX = 100;
+  let decor = { clouds: [], stars: [] };
 
   function resetGameVars() {
     score = 0; lives = 3; level = 1;
@@ -131,8 +134,23 @@
     };
   }
 
+  function buildDecor() {
+    decor.clouds = [];
+    for (let i = 0; i < 6; i++) {
+      decor.clouds.push({
+        x: rand(-40, W + 40), y: rand(20, H - 80),
+        scale: rand(0.6, 1.4), speed: rand(6, 18), puff: Math.floor(rand(3, 5)),
+      });
+    }
+    decor.stars = [];
+    for (let i = 0; i < 18; i++) {
+      decor.stars.push({ x: rand(0, W), y: rand(0, H * 0.7), r: rand(1, 2.6), tw: rand(0, Math.PI * 2) });
+    }
+  }
+
   function buildLevel() {
     platforms = buildPlatforms(level - 1);
+    buildDecor();
     spawnPlayer();
     bubbles = [];
     trapped = [];
@@ -217,6 +235,7 @@
 
   // ---------- Update ----------
   function update(dt) {
+    clock += dt;
     if (state !== 'playing') return;
 
     if (comboTimer > 0) comboTimer -= dt; else combo = 0;
@@ -230,6 +249,11 @@
     updateFruits(dt);
     updateParticles(dt);
     updateFloatingTexts(dt);
+    for (const c of decor.clouds) {
+      c.x += c.speed * dt;
+      if (c.x > W + 60) c.x = -60;
+    }
+    for (const s of decor.stars) s.tw += dt * 2;
 
     if (enemies.length === 0) {
       state = 'levelclear';
@@ -247,7 +271,7 @@
     else player.vx = 0;
 
     if ((keys['ArrowUp'] || keys['Space'] || keys['KeyW']) && player.onGround) {
-      player.vy = -520;
+      player.vy = JUMP_VELOCITY;
       player.onGround = false;
       sfx.jump();
     }
@@ -370,7 +394,10 @@
       combo > 3 ? '#ffea00' : '#fff', 14 + Math.min(combo, 6) * 2);
 
     if (Math.random() < 0.6) {
-      fruits.push({ x: t.x + t.w / 2 - 8, y: t.y, w: 16, h: 16, vy: -80, life: 5 });
+      fruits.push({
+        x: t.x + t.w / 2 - 8, y: t.y, w: 16, h: 16, vy: -80, life: 5,
+        kind: choice(['cherry', 'apple', 'grape', 'star']),
+      });
     }
   }
 
@@ -462,61 +489,259 @@
     frenzyInner.style.width = `${frenzyActive > 0 ? 100 : frenzy}%`;
   }
 
+  // ---------- Render helpers ----------
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawCloudShape(cx, cy, scale, puffs) {
+    const r = 16 * scale;
+    ctx.beginPath();
+    for (let i = 0; i < puffs; i++) {
+      const px = cx + (i - (puffs - 1) / 2) * r * 1.2;
+      const py = cy + (i % 2 === 0 ? 0 : -r * 0.35);
+      ctx.moveTo(px + r, py);
+      ctx.arc(px, py, r, 0, Math.PI * 2);
+    }
+    ctx.fill();
+  }
+
+  function drawEyes(cx, cy, spacing, eyeR, lookDir, blinkPhase) {
+    const blink = Math.max(0.15, Math.abs(Math.sin(blinkPhase)));
+    for (const side of [-1, 1]) {
+      const ex = cx + side * spacing;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.ellipse(ex, cy, eyeR, eyeR * blink, 0, 0, Math.PI * 2);
+      ctx.fill();
+      if (blink > 0.3) {
+        ctx.fillStyle = '#1a1a2e';
+        ctx.beginPath();
+        ctx.arc(ex + lookDir * eyeR * 0.4, cy + eyeR * 0.15, eyeR * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(ex + lookDir * eyeR * 0.4 - eyeR * 0.15, cy - eyeR * 0.15, eyeR * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
   // ---------- Render ----------
   function drawBackground() {
+    const hue = (level * 40) % 360;
     const grad = ctx.createLinearGradient(0, 0, 0, H);
-    const hue = (level * 35) % 360;
-    grad.addColorStop(0, `hsl(${hue}, 60%, 18%)`);
-    grad.addColorStop(1, `hsl(${hue + 40}, 60%, 8%)`);
+    grad.addColorStop(0, `hsl(${hue}, 70%, 78%)`);
+    grad.addColorStop(0.6, `hsl(${hue + 25}, 70%, 62%)`);
+    grad.addColorStop(1, `hsl(${hue + 45}, 55%, 42%)`);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    for (const s of decor.stars) {
+      const a = 0.4 + 0.6 * Math.abs(Math.sin(s.tw));
+      ctx.globalAlpha = a;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    for (const c of decor.clouds) {
+      drawCloudShape(c.x, c.y, c.scale, c.puff);
+    }
+
+    // soft sun glow
+    const sunGrad = ctx.createRadialGradient(W - 90, 80, 5, W - 90, 80, 70);
+    sunGrad.addColorStop(0, 'rgba(255, 245, 200, 0.95)');
+    sunGrad.addColorStop(1, 'rgba(255, 245, 200, 0)');
+    ctx.fillStyle = sunGrad;
+    ctx.fillRect(W - 170, 0, 170, 170);
   }
 
   function drawPlatforms() {
-    ctx.fillStyle = '#ff66cc';
     for (const p of platforms) {
-      ctx.fillStyle = '#3a2a6a';
-      ctx.fillRect(p.x, p.y, p.w, p.h);
-      ctx.fillStyle = '#ff99e6';
-      ctx.fillRect(p.x, p.y, p.w, 4);
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.18)';
+      ctx.shadowBlur = 6;
+      ctx.shadowOffsetY = 4;
+      const grad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.h);
+      grad.addColorStop(0, '#fff7fb');
+      grad.addColorStop(1, '#ffd3ec');
+      ctx.fillStyle = grad;
+      roundRect(p.x, p.y, p.w, Math.max(p.h, 16), 10);
+      ctx.fill();
+      ctx.restore();
+
+      // little candy dots on top for personality
+      ctx.fillStyle = `hsl(${(level * 50) % 360}, 75%, 70%)`;
+      for (let dx = 14; dx < p.w - 10; dx += 34) {
+        ctx.beginPath();
+        ctx.arc(p.x + dx, p.y + 4, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
 
   function drawPlayer() {
     ctx.save();
-    if (player.invuln > 0 && Math.floor(player.invuln * 10) % 2 === 0) ctx.globalAlpha = 0.3;
-    ctx.fillStyle = frenzyActive > 0 ? '#ffea00' : '#4ade80';
-    ctx.fillRect(player.x, player.y, player.w, player.h);
-    ctx.fillStyle = '#0a0a1a';
-    const eyeX = player.facing > 0 ? player.x + 18 : player.x + 4;
-    ctx.fillRect(eyeX, player.y + 8, 5, 5);
+    if (player.invuln > 0 && Math.floor(player.invuln * 10) % 2 === 0) ctx.globalAlpha = 0.35;
+    const cx = player.x + player.w / 2;
+    const cy = player.y + player.h / 2;
+    const squish = player.onGround ? 1 + Math.sin(clock * 10) * 0.02 : 1;
+
+    // feet
+    ctx.fillStyle = '#1a8f4a';
+    ctx.beginPath();
+    ctx.ellipse(cx - 9, player.y + player.h - 2, 7, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + 9, player.y + player.h - 2, 7, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // body
+    const bodyGrad = ctx.createRadialGradient(cx - 6, cy - 10, 4, cx, cy, player.w);
+    if (frenzyActive > 0) {
+      bodyGrad.addColorStop(0, '#fff6b0');
+      bodyGrad.addColorStop(1, '#ffb800');
+    } else {
+      bodyGrad.addColorStop(0, '#b6ffd8');
+      bodyGrad.addColorStop(1, '#3ddc84');
+    }
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 2, (player.w / 2 + 3) * squish, player.h / 2 + 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(20,90,50,0.5)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // little antenna
+    ctx.strokeStyle = frenzyActive > 0 ? '#ffb800' : '#3ddc84';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx, player.y - 2);
+    ctx.lineTo(cx + player.facing * 4, player.y - 12);
+    ctx.stroke();
+    ctx.fillStyle = '#ff6fae';
+    ctx.beginPath();
+    ctx.arc(cx + player.facing * 4, player.y - 12, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // eyes
+    drawEyes(cx, cy - 4, 7, 6, player.facing, clock * 1.2);
+
+    // blush
+    ctx.fillStyle = 'rgba(255,120,160,0.55)';
+    ctx.beginPath();
+    ctx.ellipse(cx - 12, cy + 6, 4, 2.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + 12, cy + 6, 4, 2.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawCuteMonster(en) {
+    const cx = en.x + en.w / 2;
+    const cy = en.y + en.h / 2;
+    const bob = Math.sin(clock * 5 + en.x) * 2;
+
+    ctx.save();
+    ctx.translate(0, bob);
+
+    // ears / horns
+    ctx.fillStyle = en.color;
+    if (en.type === 'fast') {
+      ctx.beginPath();
+      ctx.moveTo(cx - en.w * 0.3, cy - en.h * 0.4);
+      ctx.lineTo(cx - en.w * 0.15, cy - en.h * 0.9);
+      ctx.lineTo(cx, cy - en.h * 0.4);
+      ctx.fill();
+    } else if (en.type === 'boss') {
+      ctx.fillStyle = '#ffd54a';
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(cx + i * en.w * 0.25 - 6, cy - en.h * 0.45);
+        ctx.lineTo(cx + i * en.w * 0.25, cy - en.h * 0.45 - 14);
+        ctx.lineTo(cx + i * en.w * 0.25 + 6, cy - en.h * 0.45);
+        ctx.fill();
+      }
+    }
+
+    // body
+    const grad = ctx.createRadialGradient(cx - en.w * 0.15, cy - en.h * 0.2, 3, cx, cy, en.w * 0.7);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.25, en.color);
+    grad.addColorStop(1, en.color);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, en.w / 2, en.h / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    drawEyes(cx, cy - en.h * 0.08, en.w * 0.2, en.w * 0.16, Math.sign(en.vx) || 1, clock * 1.6 + cx);
+
+    // angry eyebrows / mouth
+    ctx.strokeStyle = '#1a1a2e';
+    ctx.lineWidth = 2;
+    if (en.angry) {
+      ctx.beginPath();
+      ctx.moveTo(cx - en.w * 0.28, cy - en.h * 0.28);
+      ctx.lineTo(cx - en.w * 0.1, cy - en.h * 0.2);
+      ctx.moveTo(cx + en.w * 0.28, cy - en.h * 0.28);
+      ctx.lineTo(cx + en.w * 0.1, cy - en.h * 0.2);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(cx, cy + en.h * 0.18, en.w * 0.14, 0.15 * Math.PI, 0.85 * Math.PI);
+    ctx.stroke();
+
+    if (en.type === 'boss') {
+      const barW = en.w + 10;
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      roundRect(en.x - 5, en.y - 18, barW, 8, 4);
+      ctx.fill();
+      ctx.fillStyle = '#ff5577';
+      roundRect(en.x - 5, en.y - 18, barW * Math.max(0, en.hp / en.maxHp), 8, 4);
+      ctx.fill();
+    }
     ctx.restore();
   }
 
   function drawEnemies() {
-    for (const en of enemies) {
-      ctx.fillStyle = en.color;
-      ctx.beginPath();
-      ctx.ellipse(en.x + en.w / 2, en.y + en.h / 2, en.w / 2, en.h / 2, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#0a0a1a';
-      ctx.fillRect(en.x + en.w * 0.6, en.y + en.h * 0.3, 4, 4);
-      if (en.type === 'boss') {
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(en.x, en.y - 14, en.w, 6);
-        ctx.fillStyle = '#ff1744';
-        ctx.fillRect(en.x, en.y - 14, en.w * (en.hp / en.maxHp), 6);
-      }
-    }
+    for (const en of enemies) drawCuteMonster(en);
   }
 
   function drawBubbles() {
     for (const b of bubbles) {
-      ctx.strokeStyle = b.special === 'rainbow' ? '#ff00d4' : '#9be7ff';
-      ctx.lineWidth = 2;
+      const cx = b.x + b.w / 2, cy = b.y + b.h / 2, r = b.w / 2;
+      ctx.save();
+      ctx.globalAlpha = 0.85;
+      const grad = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, 1, cx, cy, r);
+      if (b.special === 'rainbow') {
+        grad.addColorStop(0, '#fff');
+        grad.addColorStop(0.5, '#ff9bea');
+        grad.addColorStop(1, '#a06bff');
+      } else {
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.5, '#bdeeff');
+        grad.addColorStop(1, '#6fc8ff');
+      }
+      ctx.fillStyle = grad;
       ctx.beginPath();
-      ctx.arc(b.x + b.w / 2, b.y + b.h / 2, b.w / 2, 0, Math.PI * 2);
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 1.5;
       ctx.stroke();
+      ctx.restore();
     }
   }
 
@@ -524,34 +749,95 @@
     for (const t of trapped) {
       const flashing = t.life < 1.5;
       if (flashing && Math.floor(t.life * 8) % 2 === 0) continue;
-      ctx.strokeStyle = t.rainbow ? '#ff00d4' : '#fff';
-      ctx.lineWidth = 2;
+      const cx = t.x + t.w / 2, cy = t.y + t.h / 2, r = Math.max(t.w, t.h) / 2 + 6;
+
+      ctx.save();
+      const grad = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, 2, cx, cy, r);
+      grad.addColorStop(0, 'rgba(255,255,255,0.55)');
+      grad.addColorStop(0.6, t.rainbow ? 'rgba(255,140,230,0.25)' : 'rgba(180,230,255,0.25)');
+      grad.addColorStop(1, 'rgba(255,255,255,0.05)');
+      ctx.fillStyle = grad;
       ctx.beginPath();
-      ctx.arc(t.x + t.w / 2, t.y + t.h / 2, Math.max(t.w, t.h) / 2 + 4, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.globalAlpha = 0.85;
-      ctx.fillStyle = t.color;
-      ctx.beginPath();
-      ctx.ellipse(t.x + t.w / 2, t.y + t.h / 2, t.w / 2, t.h / 2, 0, 0, Math.PI * 2);
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.fill();
+      ctx.strokeStyle = t.rainbow ? '#ff7be0' : '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // glossy highlight crescent
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r - 4, Math.PI * 1.1, Math.PI * 1.5);
+      ctx.stroke();
+
+      ctx.globalAlpha = 0.9;
+      const bodyGrad = ctx.createRadialGradient(cx - t.w * 0.15, cy - t.h * 0.2, 2, cx, cy, t.w * 0.6);
+      bodyGrad.addColorStop(0, '#ffffff');
+      bodyGrad.addColorStop(0.3, t.color);
+      bodyGrad.addColorStop(1, t.color);
+      ctx.fillStyle = bodyGrad;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, t.w / 2, t.h / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      drawEyes(cx, cy - t.h * 0.08, t.w * 0.2, t.w * 0.15, 1, clock * 2 + cx);
       ctx.globalAlpha = 1;
+      ctx.restore();
     }
   }
 
-  function drawFruits() {
-    ctx.fillStyle = '#ff3b3b';
-    for (const f of fruits) {
-      ctx.beginPath();
-      ctx.arc(f.x + f.w / 2, f.y + f.h / 2, f.w / 2, 0, Math.PI * 2);
-      ctx.fill();
+  function drawFruitShape(f) {
+    const cx = f.x + f.w / 2, cy = f.y + f.h / 2;
+    ctx.save();
+    switch (f.kind) {
+      case 'cherry':
+        ctx.strokeStyle = '#2e7d32'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(cx, cy - 8); ctx.lineTo(cx + 3, cy - 12); ctx.stroke();
+        ctx.fillStyle = '#e53950';
+        for (const dx of [-4, 4]) {
+          ctx.beginPath(); ctx.arc(cx + dx, cy + 2, 5.5, 0, Math.PI * 2); ctx.fill();
+        }
+        break;
+      case 'apple':
+        ctx.fillStyle = '#ff4d4d';
+        ctx.beginPath(); ctx.arc(cx, cy + 1, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#3c9c3c';
+        ctx.beginPath(); ctx.ellipse(cx + 4, cy - 8, 4, 2.5, 0.6, 0, Math.PI * 2); ctx.fill();
+        break;
+      case 'grape':
+        ctx.fillStyle = '#9b59d0';
+        for (const [dx, dy] of [[-4, -3], [4, -3], [0, 0], [-4, 5], [4, 5]]) {
+          ctx.beginPath(); ctx.arc(cx + dx, cy + dy, 4, 0, Math.PI * 2); ctx.fill();
+        }
+        break;
+      case 'star':
+      default: {
+        ctx.fillStyle = '#ffd23f';
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+          const a = -Math.PI / 2 + i * (Math.PI * 2 / 5);
+          const a2 = a + Math.PI / 5;
+          ctx.lineTo(cx + Math.cos(a) * 8, cy + Math.sin(a) * 8);
+          ctx.lineTo(cx + Math.cos(a2) * 3.5, cy + Math.sin(a2) * 3.5);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
     }
+    ctx.restore();
+  }
+
+  function drawFruits() {
+    for (const f of fruits) drawFruitShape(f);
   }
 
   function drawParticles() {
     for (const p of particles) {
       ctx.globalAlpha = Math.max(0, 1 - p.age / p.life);
       ctx.fillStyle = p.color;
-      ctx.fillRect(p.x, p.y, p.size, p.size);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.globalAlpha = 1;
   }
