@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bubble Bobble Deluxe</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="game" width="800" height="600"></canvas>
+
+    <div id="hud">
+      <div id="score">SCORE: 0</div>
+      <div id="lives">VIDAS: 3</div>
+      <div id="level">NIVEL: 1</div>
+      <div id="frenzyBarOuter"><div id="frenzyBarInner"></div></div>
+    </div>
+
+    <div id="overlay" class="show">
+      <h1>BUBBLE BOBBLE <span class="deluxe">DELUXE</span></h1>
+      <p>Atrapa enemigos en burbujas, revienta combos en cadena y llena el medidor de FRENESÍ.</p>
+      <p class="controls">
+        ⬅️➡️ Mover &nbsp; | &nbsp; ⬆️ / Espacio: Saltar &nbsp; | &nbsp; Z / Ctrl: Disparar burbuja
+      </p>
+      <button id="startBtn">JUGAR</button>
+      <div id="leaderboard"></div>
+    </div>
+
+    <div id="gameover" class="hidden">
+      <h2>GAME OVER</h2>
+      <p id="finalScore"></p>
+      <input id="nameInput" maxlength="10" placeholder="Tu nombre" />
+      <button id="saveScoreBtn">GUARDAR Y VER RANKING</button>
+    </div>
+  </div>
+  <script src="game.js"></script>
+</body>
+</html>
