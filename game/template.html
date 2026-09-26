@@ -79,6 +79,15 @@
   .spacer { flex: 1; }
   .check { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; }
   .check input { width: 22px; height: 22px; accent-color: var(--vino); margin-top: 2px; }
+  .art { margin: -28px -22px 0; height: 170px; border-radius: 24px 24px 0 0; overflow: hidden; position: relative; }
+  .art svg { display: block; width: 100%; height: 100%; }
+  .art .draw { stroke-dasharray: 900; stroke-dashoffset: 900; animation: draw 1.6s ease-out forwards; }
+  .art .glow { animation: pulse 5s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes pulse { 0%,100% { opacity: .1; transform: scale(.92); } 50% { opacity: .2; transform: scale(1.05); } }
+  .card.enter { animation: cardin .5s ease-out; }
+  @keyframes cardin { from { opacity: .2; transform: translateY(10px) rotate(-1deg); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .art .draw { stroke-dashoffset: 0; } }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 <div class="app">
@@ -108,7 +117,7 @@
     <p class="muted">¿Qué temperatura tiene tu noche? Podés bajarla cuando quieras.</p>
     <div class="levels" id="levels"></div>
     <p class="muted" id="lvl-desc"></p>
-    <button class="tile" data-go="sola"><b>Sola</b><span class="muted">Cartas para vos: confesionario, cuerpo, fantasías.</span></button>
+    <button class="tile" data-go="sola"><b>Sola</b><span class="muted">Cartas para vos: confesionario, cuerpo, fantasías. Desde Fuego se suma el mazo Acción.</span></button>
     <button class="tile" data-go="pareja"><b>En pareja</b><span class="muted">Mazo, Match secreto y Revelación en espejo, pasándose el teléfono.</span></button>
     <button class="tile" data-go="journal"><b>Mi confesionario</b><span class="muted" id="journal-count">Vacío, como una sábana limpia.</span></button>
   </section>
@@ -127,6 +136,7 @@
   <section class="screen" id="s-deck">
     <div class="progress"><i id="deck-prog"></i></div>
     <div class="card" id="deck-card">
+      <div class="art" id="deck-art"></div>
       <div class="tag" id="deck-tag"></div>
       <div class="txt" id="deck-txt"></div>
       <textarea id="deck-write" placeholder="Escribí como si nadie fuera a leerlo, porque nadie lo va a leer."></textarea>
@@ -163,6 +173,7 @@
     <div class="progress"><i id="mq-prog"></i></div>
     <p class="muted" id="mq-who"></p>
     <div class="card" id="mq-card">
+      <div class="art" id="mq-art"></div>
       <div class="tag" id="mq-tag"></div>
       <div class="txt" id="mq-txt"></div>
     </div>
@@ -184,7 +195,8 @@
   <!-- Espejo: escribir -->
   <section class="screen" id="s-eq">
     <p class="muted" id="eq-who"></p>
-    <div class="card">
+    <div class="card" id="eq-card">
+      <div class="art" id="eq-art"></div>
       <div class="tag">Revelación en espejo</div>
       <div class="txt" id="eq-txt"></div>
       <textarea id="eq-write" placeholder="Tu respuesta. La otra persona no la ve hasta que respondan los dos."></textarea>
@@ -262,6 +274,57 @@ const LEVELS = [
   { n: "Volcán", c: "#6E1F3A", d: "Poder, órdenes, ataduras, edging. Acuerden palabra de pausa antes." },
   { n: "Sin filtro", c: "#1B1420", d: "Lo más crudo. Tus límites siguen activos; lo demás, sin vueltas." }
 ];
+/* ---------- Ilustraciones ---------- */
+const ART_PAL = [
+  ["#f3d9c7", "#e2a98f", "#6E1F3A"], ["#e8a15c", "#a9492a", "#fff1e6"], ["#c4502f", "#5e1a32", "#ffd9b8"],
+  ["#6e1f3a", "#1f0a15", "#e8a15c"], ["#241a2b", "#050306", "#D4AF37"]
+];
+const TORSO = "M72 8 C58 40 98 56 86 78 C74 100 52 112 70 138 M128 8 C142 40 102 56 114 78 C126 100 148 112 130 138";
+const MOTIFS = {
+  lips: `<path class="draw" d="M40 72 C60 50 82 48 100 62 C118 48 140 50 160 72 C140 96 120 104 100 104 C80 104 60 96 40 72 Z"/><path class="draw" d="M40 72 C70 78 86 70 100 74 C114 70 130 78 160 72"/>`,
+  flame: `<path class="draw" d="M100 16 C122 48 142 66 132 98 C124 122 76 122 68 98 C60 72 86 60 90 38 C96 56 108 62 100 16 Z"/><path class="draw" d="M100 62 C110 78 118 88 112 102 C106 114 94 114 88 102 C84 92 94 84 100 62 Z"/>`,
+  candle: `<rect class="draw" x="86" y="70" width="28" height="60" rx="3"/><path class="draw" d="M100 30 C110 44 112 54 100 64 C88 54 90 44 100 30 Z"/>`,
+  eye: `<path class="draw" d="M26 70 Q100 8 174 70 Q100 132 26 70 Z"/><circle class="draw" cx="100" cy="70" r="20"/><circle cx="100" cy="70" r="7" fill="currentColor"/>`,
+  torso: `<path class="draw" d="${TORSO}"/><path class="draw" d="M92 44 C96 48 104 48 108 44" />`,
+  pair: `<g transform="translate(-26 0)"><path class="draw" d="${TORSO}"/></g><g transform="translate(26 0)" opacity=".75"><path class="draw" d="${TORSO}"/></g>`,
+  sheets: [30, 55, 80, 105].map((y, i) => `<path class="draw" style="animation-delay:${i * .15}s" d="M0 ${y} C40 ${y - 22} 70 ${y + 22} 110 ${y} S170 ${y - 20} 200 ${y}"/>`).join(""),
+  ribbon: `<path class="draw" d="M56 70 C56 38 100 38 100 70 C100 102 144 102 144 70 C144 38 100 38 100 70 C100 102 56 102 56 70 Z"/><path class="draw" d="M100 70 C92 100 80 116 62 132 M100 70 C108 100 120 116 138 132"/>`,
+  key: `<circle class="draw" cx="66" cy="70" r="24"/><circle class="draw" cx="66" cy="70" r="8"/><path class="draw" d="M90 70 H168 M146 70 V88 M160 70 V82"/>`,
+  mirror: `<ellipse class="draw" cx="100" cy="64" rx="38" ry="50"/><path class="draw" d="M78 40 C82 30 90 24 98 22 M100 114 V136 M86 136 H114"/>`,
+  drop: `<path class="draw" d="M100 16 C120 52 136 74 136 96 A36 36 0 0 1 64 96 C64 74 80 52 100 16 Z"/><path class="draw" d="M84 96 C84 106 90 114 100 116"/>`,
+  moon: `<path class="draw" d="M118 20 A52 52 0 1 0 150 108 A42 42 0 1 1 118 20 Z"/>`,
+  ripples: [10, 26, 44, 64].map((r, i) => `<circle class="draw" style="animation-delay:${i * .2}s" cx="100" cy="72" r="${r}" opacity="${1 - i * .2}"/>`).join("")
+};
+const RULES = [
+  [/espejo/, "mirror"],
+  [/\bata|pañuelo|corbata|vend|cabecera|dominaci|órdenes|obedec|nalgad|pinzas/, "ribbon"],
+  [/boca|lengua|lamé|lamer|chup|besa|beso|oral|labios|sesenta/, "lips"],
+  [/\bmir|ojos|observ|filma|vistos|ventana/, "eye"],
+  [/ducha|agua|hielo|squirt|mojad/, "drop"],
+  [/vela|\bluz|lámpara/, "candle"],
+  [/clítoris|tocate|tocás|masturb|dedos|vibrador|juguete|edging|borde/, "ripples"],
+  [/sueño|dorm/, "moon"],
+  [/sábana|cama|desnud|piel|masaje|aceite|prenda/, "sheets"]
+];
+function motifFor(c) {
+  if (c.type === "Espejo" && c.mode === "Pareja") return "mirror";
+  const t = c.text.toLowerCase();
+  for (const [re, m] of RULES) if (re.test(t)) return m;
+  if (c.type === "Confesionario") return "key";
+  if (c.mode === "Pareja") return "pair";
+  return ["moon", "sheets", "flame", "ribbon", "torso"][c.level - 1];
+}
+function drawArt(el, c) {
+  const [a, b, ink] = ART_PAL[c.level - 1], id = "g" + c.id;
+  el.innerHTML = `<svg viewBox="0 0 200 140" preserveAspectRatio="xMidYMid slice" aria-hidden="true" style="color:${ink}">
+    <defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs>
+    <rect width="200" height="140" fill="url(#${id})"/>
+    <circle class="glow" cx="100" cy="70" r="44" fill="${ink}"/>
+    <g fill="none" stroke="${ink}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${MOTIFS[motifFor(c)]}</g>
+  </svg>`;
+  const card = el.parentElement; card.classList.remove("enter"); void card.offsetWidth; card.classList.add("enter");
+}
+
 const WRITE_TYPES = ["Confesionario", "Espejo", "Carta de sueños"];
 
 const st = { level: 1, screen: "gate", prev: "home", deck: [], i: 0, deckMode: "Sola",
@@ -317,6 +380,7 @@ function renderCard() {
   const c = st.deck[st.i];
   if (!c) { show("deckend"); return; }
   $("deck-card").classList.toggle("l5", c.level === 5);
+  drawArt($("deck-art"), c);
   $("deck-tag").textContent = `${LEVELS[c.level - 1].n} · ${c.mode} · ${c.type}`;
   $("deck-txt").textContent = c.text;
   const writes = WRITE_TYPES.includes(c.type) && c.mode === "Sola";
@@ -355,6 +419,7 @@ function renderMQ() {
   $("mq-tag").textContent = `${LEVELS[c.level - 1].n} · Match`;
   $("mq-txt").textContent = c.text;
   $("mq-card").classList.toggle("l5", c.level === 5);
+  drawArt($("mq-art"), c);
   $("mq-prog").style.width = (m.i / m.cards.length * 100) + "%";
 }
 document.querySelectorAll("#s-mq [data-a]").forEach(b => b.onclick = () => {
@@ -401,6 +466,7 @@ function renderEQ() {
   const e = st.espejo;
   $("eq-who").textContent = `Persona ${e.p + 1}`;
   $("eq-txt").textContent = e.q.text;
+  drawArt($("eq-art"), e.q);
   $("eq-write").value = ""; $("eq-show").checked = true;
   show("eq");
 }
