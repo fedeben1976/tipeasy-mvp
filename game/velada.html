@@ -1,0 +1,543 @@
+<title>Velada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --noche: #1B1420; --ciruela: #3A2340; --vino: #6E1F3A; --ambar: #E8A15C;
+    --piel: #F3D9C7; --salvia: #8FA89A; --oro: #D4AF37;
+    --text: var(--piel); --muted: #bfa8b3; --surface: #2a1d30; --line: #4a3350;
+    --bg: var(--noche);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(120% 80% at 50% 0%, #2c1b33 0%, var(--bg) 60%) fixed, var(--bg);
+    color: var(--text); font: 16px/1.5 "DM Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app { max-width: 480px; margin: 0 auto; min-height: 100%; padding: 0 16px 32px; display: flex; flex-direction: column; }
+  header {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 0; background: linear-gradient(var(--bg) 70%, transparent);
+  }
+  header.hidden { visibility: hidden; }
+  .brand { font-family: Fraunces, serif; font-size: 20px; letter-spacing: .02em; display: flex; gap: 8px; align-items: center; cursor: pointer; }
+  .moon { width: 18px; height: 18px; border-radius: 50%; box-shadow: inset -5px -1px 0 0 var(--oro); transform: rotate(-20deg); }
+  .hbtns { display: flex; gap: 8px; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; }
+  .pill { min-height: 44px; padding: 0 16px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); display: inline-flex; align-items: center; gap: 8px; }
+  .pill .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .pause { background: var(--salvia); color: #13201a; border: 0; font-weight: 600; }
+  .screen { display: none; flex: 1; flex-direction: column; gap: 16px; animation: fade .45s ease-out; }
+  .screen.on { display: flex; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  h1, h2 { font-family: Fraunces, serif; font-weight: 400; margin: 0; line-height: 1.2; }
+  h1 { font-size: 32px; } h2 { font-size: 24px; }
+  p { margin: 0; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .center { text-align: center; }
+  .btn { min-height: 52px; padding: 0 20px; border-radius: 16px; background: var(--vino); color: var(--piel); font-weight: 600; width: 100%; }
+  .btn.ghost { background: transparent; border: 1px solid var(--line); font-weight: 500; }
+  .btn.soft { background: var(--surface); border: 1px solid var(--line); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .row { display: flex; gap: 10px; } .row > * { flex: 1; }
+  .levels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .lvl { padding: 10px 2px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); font-size: 12px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .lvl .sw { width: 22px; height: 22px; border-radius: 50%; }
+  .lvl.sel { border-color: var(--ambar); background: #3a2638; }
+  .tile { text-align: left; padding: 18px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; width: 100%; }
+  .tile b { font-family: Fraunces, serif; font-weight: 600; font-size: 20px; }
+  .card {
+    position: relative; border-radius: 24px; padding: 28px 22px; min-height: 300px;
+    background: linear-gradient(160deg, #3d2544, #24172a); border: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 18px; box-shadow: 0 20px 50px -20px #000a;
+  }
+  .card.l5 { border-color: var(--oro); }
+  .tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .card .txt { font-family: Fraunces, serif; font-style: italic; font-size: 22px; line-height: 1.4; flex: 1; }
+  textarea { width: 100%; min-height: 120px; border-radius: 14px; padding: 12px; background: #1f1524; color: var(--piel); border: 1px solid var(--line); font: inherit; resize: vertical; }
+  textarea:focus, button:focus-visible { outline: 2px solid var(--ambar); outline-offset: 2px; }
+  .progress { height: 4px; border-radius: 4px; background: var(--surface); overflow: hidden; }
+  .progress > i { display: block; height: 100%; background: var(--ambar); transition: width .4s ease-out; }
+  .answers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .answers button { min-height: 52px; border-radius: 14px; background: #1f1524; border: 1px solid var(--line); font-weight: 600; }
+  .result { padding: 16px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+  .result .k { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ambar); }
+  .result.match .k { color: var(--oro); }
+  .overlay { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; padding: 16px; background: #0e0a11ee; backdrop-filter: blur(8px); }
+  .overlay.on { display: flex; }
+  .sheet { max-width: 420px; width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .breath { width: 90px; height: 90px; border-radius: 50%; margin: 6px auto; background: radial-gradient(circle, var(--salvia), transparent 70%); animation: breath 10s ease-in-out infinite; }
+  @keyframes breath { 0%,100% { transform: scale(.6); opacity: .5; } 40% { transform: scale(1.1); opacity: 1; } }
+  .neutral { position: fixed; inset: 0; z-index: 30; display: none; background: #f7f7f5; color: #222; font-family: system-ui, sans-serif; padding: 20px; }
+  .neutral.on { display: block; }
+  .neutral h3 { margin: 8px 0 16px; font-size: 28px; user-select: none; }
+  .neutral .n { border-bottom: 1px solid #e3e3e0; padding: 12px 0; color: #666; }
+  .entry { padding: 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+  .entry small { color: var(--muted); display: block; margin-bottom: 4px; }
+  .spacer { flex: 1; }
+  .check { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; }
+  .check input { width: 22px; height: 22px; accent-color: var(--vino); margin-top: 2px; }
+  .art { margin: -28px -22px 0; height: 170px; border-radius: 24px 24px 0 0; overflow: hidden; position: relative; }
+  .art svg { display: block; width: 100%; height: 100%; }
+  .art .draw { stroke-dasharray: 900; stroke-dashoffset: 900; animation: draw 1.6s ease-out forwards; }
+  .art .glow { animation: pulse 5s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes pulse { 0%,100% { opacity: .1; transform: scale(.92); } 50% { opacity: .2; transform: scale(1.05); } }
+  .card.enter { animation: cardin .5s ease-out; }
+  @keyframes cardin { from { opacity: .2; transform: translateY(10px) rotate(-1deg); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .art .draw { stroke-dashoffset: 0; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+<div class="app">
+  <header id="hdr" class="hidden">
+    <div class="brand" id="home-link"><span class="moon"></span>Velada</div>
+    <div class="hbtns">
+      <button class="pill" id="lvl-btn" aria-label="Cambiar temperatura"><span class="dot" id="lvl-dot"></span><span id="lvl-name"></span></button>
+      <button class="pill pause" id="pause-btn">⏸ Pausa</button>
+    </div>
+  </header>
+
+  <!-- 18+ -->
+  <section class="screen on" id="s-gate">
+    <div class="spacer"></div>
+    <div class="center"><span class="moon" style="display:inline-block;width:44px;height:44px;box-shadow:inset -12px -2px 0 0 var(--oro)"></span></div>
+    <h1 class="center">Bienvenida a tu velada.</h1>
+    <p class="center muted">Acá no hay nada que demostrar. Solo cosas para descubrir, a tu ritmo.</p>
+    <label class="check"><input type="checkbox" id="age"> Tengo 18 años o más y quiero ver contenido sexual explícito.</label>
+    <p class="muted">Nada se guarda: lo que escribas vive solo en esta pestaña y desaparece al cerrarla. Tecla <b>Esc</b> o el botón Pausa → Cerrar: pantalla neutra al instante.</p>
+    <button class="btn" id="enter" disabled>Entrar</button>
+    <div class="spacer"></div>
+  </section>
+
+  <!-- Inicio -->
+  <section class="screen" id="s-home">
+    <h1>Buenas noches.</h1>
+    <p class="muted">¿Qué temperatura tiene tu noche? Podés bajarla cuando quieras.</p>
+    <div class="levels" id="levels"></div>
+    <p class="muted" id="lvl-desc"></p>
+    <button class="tile" data-go="sola"><b>Sola</b><span class="muted">Cartas para vos: confesionario, cuerpo, fantasías. Desde Fuego se suma el mazo Acción.</span></button>
+    <button class="tile" data-go="pareja"><b>En pareja</b><span class="muted">Mazo, Match secreto y Revelación en espejo, pasándose el teléfono.</span></button>
+    <button class="tile" data-go="journal"><b>Mi confesionario</b><span class="muted" id="journal-count">Vacío, como una sábana limpia.</span></button>
+  </section>
+
+  <!-- Menú pareja -->
+  <section class="screen" id="s-pareja">
+    <h2>En pareja</h2>
+    <p class="muted">Un solo teléfono. Cuando la app lo pida, se lo pasan sin mirar.</p>
+    <button class="tile" data-go="deck-pareja"><b>Mazo de pareja</b><span class="muted">Las cartas de esta temperatura, una por una.</span></button>
+    <button class="tile" data-go="match"><b>Match secreto</b><span class="muted">Sí / Tal vez / No. Solo se ven las coincidencias. Los “No” no existen para nadie.</span></button>
+    <button class="tile" data-go="espejo"><b>Revelación en espejo</b><span class="muted">Ambos responden antes de ver la respuesta del otro.</span></button>
+    <button class="btn ghost" data-go="home">Volver</button>
+  </section>
+
+  <!-- Mazo -->
+  <section class="screen" id="s-deck">
+    <div class="progress"><i id="deck-prog"></i></div>
+    <div class="card" id="deck-card">
+      <div class="art" id="deck-art"></div>
+      <div class="tag" id="deck-tag"></div>
+      <div class="txt" id="deck-txt"></div>
+      <textarea id="deck-write" placeholder="Escribí como si nadie fuera a leerlo, porque nadie lo va a leer."></textarea>
+    </div>
+    <p class="muted center" id="deck-note"></p>
+    <div class="row">
+      <button class="btn soft" id="deck-save">Guardar</button>
+      <button class="btn" id="deck-next">Siguiente</button>
+    </div>
+  </section>
+
+  <!-- Fin de mazo -->
+  <section class="screen" id="s-deckend">
+    <div class="spacer"></div>
+    <h2 class="center">Gracias por esta velada.</h2>
+    <p class="center muted">Lo que pasó hoy, alcanza.</p>
+    <button class="btn" id="deck-again">Mezclar otra vez</button>
+    <button class="btn ghost" data-go="home">Volver al inicio</button>
+    <div class="spacer"></div>
+  </section>
+
+  <!-- Traspaso -->
+  <section class="screen" id="s-handoff">
+    <div class="spacer"></div>
+    <div class="breath"></div>
+    <h2 class="center" id="ho-title"></h2>
+    <p class="center muted" id="ho-text"></p>
+    <button class="btn" id="ho-go">Estoy lista/o</button>
+    <div class="spacer"></div>
+  </section>
+
+  <!-- Match: responder -->
+  <section class="screen" id="s-mq">
+    <div class="progress"><i id="mq-prog"></i></div>
+    <p class="muted" id="mq-who"></p>
+    <div class="card" id="mq-card">
+      <div class="art" id="mq-art"></div>
+      <div class="tag" id="mq-tag"></div>
+      <div class="txt" id="mq-txt"></div>
+    </div>
+    <div class="answers">
+      <button data-a="si">Sí</button>
+      <button data-a="tv">Tal vez</button>
+      <button data-a="no">No</button>
+    </div>
+  </section>
+
+  <!-- Match: resultados -->
+  <section class="screen" id="s-mres">
+    <h2>Coincidieron en esto</h2>
+    <p class="muted">¿Lo conversan… o lo juegan? Los “No” no aparecen, y nadie sabe quién dijo qué.</p>
+    <div id="mres-list" style="display:flex;flex-direction:column;gap:10px"></div>
+    <button class="btn ghost" data-go="pareja">Volver</button>
+  </section>
+
+  <!-- Espejo: escribir -->
+  <section class="screen" id="s-eq">
+    <p class="muted" id="eq-who"></p>
+    <div class="card" id="eq-card">
+      <div class="art" id="eq-art"></div>
+      <div class="tag">Revelación en espejo</div>
+      <div class="txt" id="eq-txt"></div>
+      <textarea id="eq-write" placeholder="Tu respuesta. La otra persona no la ve hasta que respondan los dos."></textarea>
+    </div>
+    <label class="check"><input type="checkbox" id="eq-show" checked> Mostrar mi respuesta cuando revelemos</label>
+    <button class="btn" id="eq-done">Listo</button>
+  </section>
+
+  <!-- Espejo: revelación -->
+  <section class="screen" id="s-eres">
+    <h2>El espejo se aclara</h2>
+    <p class="card txt" id="eres-q" style="min-height:0"></p>
+    <div id="eres-list" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div class="row">
+      <button class="btn soft" data-go="espejo">Otra pregunta</button>
+      <button class="btn ghost" data-go="pareja">Volver</button>
+    </div>
+  </section>
+
+  <!-- Confesionario -->
+  <section class="screen" id="s-journal">
+    <h2>Mi confesionario</h2>
+    <p class="muted">Vive solo en esta pestaña. Al cerrarla, desaparece.</p>
+    <div id="journal-list" style="display:flex;flex-direction:column;gap:10px"></div>
+    <button class="btn soft" id="wipe">Borrar todo</button>
+    <button class="btn ghost" data-go="home">Volver</button>
+  </section>
+</div>
+
+<!-- Pausa -->
+<div class="overlay" id="pause" role="dialog" aria-modal="true" aria-label="Pausa">
+  <div class="sheet">
+    <div class="breath"></div>
+    <h2 class="center">Pausamos.</h2>
+    <p class="center muted">Nadie tiene que explicar nada. Respirá; cuando quieras, seguimos o cerramos.</p>
+    <button class="btn" id="p-resume" style="background:var(--salvia);color:#13201a">Seguir</button>
+    <button class="btn soft" id="p-lower">Bajar la temperatura</button>
+    <button class="btn ghost" id="p-close">Cerrar (pantalla neutra)</button>
+  </div>
+</div>
+
+<!-- Elegir nivel -->
+<div class="overlay" id="lvl-sheet" role="dialog" aria-modal="true" aria-label="Temperatura">
+  <div class="sheet">
+    <h2>¿Qué temperatura?</h2>
+    <div class="levels" id="levels2"></div>
+    <button class="btn ghost" id="lvl-cancel">Cerrar</button>
+  </div>
+</div>
+
+<!-- Confirmación -->
+<div class="overlay" id="ask" role="dialog" aria-modal="true" aria-label="Confirmar">
+  <div class="sheet">
+    <p id="ask-msg" style="font-family:Fraunces,serif;font-size:20px"></p>
+    <button class="btn" id="ask-yes">Sí</button>
+    <button class="btn ghost" id="ask-no">Mejor no</button>
+  </div>
+</div>
+
+<!-- Pantalla neutra -->
+<div class="neutral" id="neutral">
+  <h3 id="neutral-title">Notas</h3>
+  <div class="n">Lista del súper</div>
+  <div class="n">Ideas para el finde</div>
+  <div class="n">Turnos</div>
+  <p style="color:#aaa;font-size:13px;margin-top:24px">Tocá dos veces “Notas” para volver.</p>
+</div>
+
+<script>
+const CARDS = [{"id": 1, "level": 1, "mode": "Sola", "type": "Confesionario", "text": "¿Cuál es la palabra más caliente que te gusta escuchar en la cama? Escribila. Después decila en voz baja y notá qué pasa entre tus piernas cuando la pronunciás."}, {"id": 2, "level": 1, "mode": "Sola", "type": "Sensorial", "text": "Pasate una tela suave (seda, tu remera, tu pelo) por los labios, el cuello y el interior de los muslos, por encima de la ropa. Un minuto. No toques más. Dejá que el cuerpo empiece a pedir."}, {"id": 3, "level": 1, "mode": "Sola", "type": "Confesionario", "text": "La última vez que alguien te miró con ganas de cogerte y a vos te gustó. ¿Dónde estabas? ¿Qué tenías puesto? ¿Qué te imaginaste en ese momento?"}, {"id": 4, "level": 1, "mode": "Sola", "type": "Confesionario", "text": "¿Qué te corta las ganas más rápido? Escribilo y dejalo afuera. Ahora escribí lo contrario: qué te moja más rápido."}, {"id": 5, "level": 1, "mode": "Sola", "type": "Fantasía", "text": "Si pudieras coger en cualquier lugar del mundo sin consecuencias, ¿dónde sería? Un tren de noche, un probador, una terraza, una biblioteca vacía… Describí solo el lugar."}, {"id": 6, "level": 1, "mode": "Sola", "type": "Misión", "text": "Elegí la ropa interior que te haga sentir más cogible y guardala. Dentro de 3 días la app te avisa: ese día te la ponés sabiendo por qué, aunque nadie más lo sepa."}, {"id": 7, "level": 1, "mode": "Pareja", "type": "Espejo", "text": "¿Qué fue lo primero que te dio ganas de acostarte con la otra persona? Sé específica: una parte del cuerpo, un gesto, una frase."}, {"id": 8, "level": 1, "mode": "Pareja", "type": "Match", "text": "Besarnos diez minutos con lengua, apretados contra una pared, sin que nadie saque la mano de donde está."}, {"id": 9, "level": 1, "mode": "Pareja", "type": "Reto", "text": "Mírense a los ojos 60 segundos. Después, sin cortar la mirada, cada uno dice en voz alta una cosa que le haría a la otra persona esta noche."}, {"id": 10, "level": 1, "mode": "Pareja", "type": "Misión", "text": "Mañana a la mañana, mandale una sola palabra que describa cómo querés que te toque hoy (“lento”, “duro”, “lengua”…). Sin explicación. El resto, a la noche."}, {"id": 11, "level": 1, "mode": "Pareja", "type": "Espejo", "text": "La canción que pondrías para coger. Se revelan juntas y la escuchan tocándose solo por encima de la ropa."}, {"id": 12, "level": 1, "mode": "Pareja", "type": "Reto", "text": "Decile, al oído, qué parte de su cuerpo te calienta y qué te gustaría hacerle con ella."}, {"id": 13, "level": 2, "mode": "Sola", "type": "Sensorial", "text": "Desnuda o en ropa interior, recorrete con las yemas: cuello, pezones, vientre, ingle, interior de los muslos. Rodeá tu vulva sin tocarla. Marcá cada zona: tibia, neutra o eléctrica."}, {"id": 14, "level": 2, "mode": "Sola", "type": "Confesionario", "text": "El mejor polvo de tu vida. Empezá por el lugar, seguí por lo que tenías puesto y terminá contando qué te hizo que todavía te moja cuando lo recordás."}, {"id": 15, "level": 2, "mode": "Sola", "type": "Reto", "text": "Desnuda frente al espejo. Buscá tres partes de tu cuerpo que te parezcan cogibles y tocalas mirándote. Sin “pero”."}, {"id": 16, "level": 2, "mode": "Sola", "type": "Confesionario", "text": "Un sueño erótico que te despertó mojada. ¿Con quién era? ¿Qué te hacían? No hace falta entenderlo, solo contarlo."}, {"id": 17, "level": 2, "mode": "Sola", "type": "Fantasía", "text": "Alguien cruza la ciudad solo para cogerte esta noche. Llega, cierra la puerta y te empuja suave contra ella. ¿Qué te dice? ¿Qué te saca primero?"}, {"id": 18, "level": 2, "mode": "Sola", "type": "Sensorial", "text": "En la ducha, dirigí el chorro por tu cuerpo: pezones, vientre, y después entre las piernas. Probá temperaturas y presiones. Notá cuál te hace apretar los muslos."}, {"id": 19, "level": 2, "mode": "Pareja", "type": "Reto", "text": "Masaje con aceite, cinco minutos por persona, cuerpo entero salvo genitales. Quien recibe solo puede decir “más”, “menos” o “ahí”. Quien masajea tiene que rozar sin tocar."}, {"id": 20, "level": 2, "mode": "Pareja", "type": "Match", "text": "Que me desvistas despacio, prenda por prenda, besando cada parte que queda al aire, y me dejes la bombacha para el final."}, {"id": 21, "level": 2, "mode": "Pareja", "type": "Espejo", "text": "¿Cuál es la vez que más te calenté? Contala con detalle antes de leer la de la otra persona."}, {"id": 22, "level": 2, "mode": "Pareja", "type": "Misión", "text": "Mañana: “Hoy te quiero adentro de…” (completalo). Mediodía: una foto de tu ropa interior o de un detalle de tu piel, nunca la cara. Noche: 20 minutos de besos y manos por encima de la ropa interior. Prohibido sacársela."}, {"id": 23, "level": 2, "mode": "Pareja", "type": "Reto", "text": "Ella con los ojos vendados. La otra persona le pasa hielo, una pluma y la lengua por el cuello, los pezones y el interior de los muslos, en el orden que quiera. Ella dice “más” o “basta”."}, {"id": 24, "level": 2, "mode": "Pareja", "type": "Match", "text": "Leer en voz alta un relato de la app, mientras quien escucha se toca."}, {"id": 25, "level": 3, "mode": "Sola", "type": "Confesionario", "text": "Escribí tu fantasía de siempre como si fuera una escena porno filmada para vos: quién, dónde, qué te hacen, cómo acabás. Después reescribí la última línea en primera persona."}, {"id": 26, "level": 3, "mode": "Sola", "type": "Sensorial", "text": "Masturbate diez minutos sin buscar el orgasmo. Explorá: clítoris por arriba, por los costados, labios, la entrada. Solo notá qué te gusta hoy. Si acabás, bienvenido. Si no, también."}, {"id": 27, "level": 3, "mode": "Sola", "type": "Fantasía", "text": "Te están mirando mientras te tocás. ¿Quién? ¿Alguien que conocés, alguien desconocido del edificio de enfrente, alguien que no puede tocarte y se muere de ganas? Imaginalo y tocate para esa mirada."}, {"id": 28, "level": 3, "mode": "Sola", "type": "Fantasía", "text": "Un lugar donde nunca lo harías: el baño de una oficina, un ascensor, un probador. Describí cómo te cogen ahí, en silencio, con el riesgo de que alguien escuche."}, {"id": 29, "level": 3, "mode": "Sola", "type": "Reto", "text": "Grabá un audio solo para vos diciendo, con palabras sucias y sin eufemismos, qué querés que te hagan. Escuchalo mientras te tocás. Después borralo o guardalo en la bóveda."}, {"id": 30, "level": 3, "mode": "Sola", "type": "Fantasía", "text": "Un fin de semana sola en un hotel con tu juguete favorito y ninguna obligación. ¿Cuántas veces acabás? ¿En la cama, en la bañera, contra el ventanal?"}, {"id": 31, "level": 3, "mode": "Pareja", "type": "Match", "text": "Que me chupes hasta acabar, sin apuro, sin que sea “la previa” de nada."}, {"id": 32, "level": 3, "mode": "Pareja", "type": "Espejo", "text": "Una fantasía que te da vergüenza contar. Escribí solo el título. Si los títulos se parecen, se la cuentan entera, al oído, mientras se tocan."}, {"id": 33, "level": 3, "mode": "Pareja", "type": "Misión", "text": "Desconocidos: se encuentran en un bar como si nunca se hubieran visto. Ella seduce. Nadie rompe el personaje hasta que ella lo decida, y terminan cogiendo como si fuera la primera vez. Pausa disponible siempre."}, {"id": 34, "level": 3, "mode": "Pareja", "type": "Misión", "text": "En una cena, ella escribe en una servilleta exactamente qué le van a hacer al llegar a casa, con palabras explícitas. La dobla. Se abre recién al cruzar la puerta, y se cumple al pie de la letra."}, {"id": 35, "level": 3, "mode": "Pareja", "type": "Match", "text": "Coger frente a un espejo, con ella mirándose todo el tiempo."}, {"id": 36, "level": 3, "mode": "Pareja", "type": "Carta de sueños", "text": "Contá un sueño erótico con todos los detalles sucios. La otra persona propone cómo recrearlo esta semana; vos aprobás, ajustás o descartás."}, {"id": 37, "level": 4, "mode": "Sola", "type": "Confesionario", "text": "La vez que más fuerte acabaste. ¿Qué te estaban haciendo, en qué posición, qué dijiste? ¿Qué parte repetirías exactamente igual?"}, {"id": 38, "level": 4, "mode": "Sola", "type": "Fantasía", "text": "Tenés a alguien atado a tu cama, a tu disposición. Vos das las órdenes. ¿Qué le hacés hacer primero con la boca?"}, {"id": 39, "level": 4, "mode": "Sola", "type": "Fantasía", "text": "Al revés: te atan, te vendan los ojos y alguien que te cuida decide todo. ¿Qué te hace? ¿Qué palabra usás para parar si hace falta?"}, {"id": 40, "level": 4, "mode": "Sola", "type": "Sensorial", "text": "Edging: tocate hasta el borde del orgasmo y pará. Tres veces. Respirá entre cada una. A la cuarta, decidís vos si acabás. Notá cómo cambia."}, {"id": 41, "level": 4, "mode": "Sola", "type": "Fantasía", "text": "La fantasía más sucia que nunca harías en la vida real. Escribila entera, sin filtro. Acá fantasear no es desear literalmente."}, {"id": 42, "level": 4, "mode": "Sola", "type": "Reto", "text": "Elegí un relato de nivel Volcán, poné el vibrador en la mano y acabá al ritmo de la voz. O no acabes y quedate con las ganas hasta mañana."}, {"id": 43, "level": 4, "mode": "Pareja", "type": "Match", "text": "Atarle las manos a quien lo elija (con un pañuelo, una corbata) y usar su cuerpo a gusto."}, {"id": 44, "level": 4, "mode": "Pareja", "type": "Match", "text": "Hablar sucio mientras cogemos: decir qué estamos haciendo y qué queremos que venga después."}, {"id": 45, "level": 4, "mode": "Pareja", "type": "Espejo", "text": "¿Qué te gustaría que te haga en la cama y nunca me pediste? Posición, lugar, palabra, juguete. Respondan ambos antes de ver."}, {"id": 46, "level": 4, "mode": "Pareja", "type": "Misión", "text": "48 horas. Día 1: prohibido tocarse sexualmente; solo mensajes cada vez más explícitos y fotos que no muestren la cara. Día 2 a la noche: ella decide cómo y cuándo termina la espera."}, {"id": 47, "level": 4, "mode": "Pareja", "type": "Reto", "text": "Durante 20 minutos, ella da órdenes y la otra persona obedece: dónde lamer, qué tan rápido, cuándo parar. Después, si quieren, se cambian."}, {"id": 48, "level": 4, "mode": "Pareja", "type": "Match", "text": "Usar un vibrador sobre ella mientras la otra persona la penetra o la chupa, con ella controlando el ritmo del juguete."}, {"id": 49, "level": 5, "mode": "Sola", "type": "Confesionario", "text": "Cinco minutos de escritura sin frenar: lo más sucio que te calienta. Sin corregir, sin elegir palabras lindas. Nadie lo va a leer."}, {"id": 50, "level": 5, "mode": "Sola", "type": "Fantasía", "text": "Más de dos cuerpos. ¿Cuántas personas? ¿Qué te hace cada una? ¿Sos el centro de todo o mirás desde un costado?"}, {"id": 51, "level": 5, "mode": "Sola", "type": "Reto", "text": "Sacate la foto más caliente que te animes, para vos. Queda en tu bóveda cifrada, nunca en la galería del teléfono. Mirala cuando te toques."}, {"id": 52, "level": 5, "mode": "Sola", "type": "Confesionario", "text": "El sueño erótico más raro o más tabú que tuviste. Si te incomodó, escribí también eso: los sueños no son deseos literales."}, {"id": 53, "level": 5, "mode": "Sola", "type": "Reto", "text": "Grabá tu propio relato porno con tu voz, en segunda persona, para escucharte masturbándote otro día. Tu escena, tus reglas."}, {"id": 54, "level": 5, "mode": "Sola", "type": "Confesionario", "text": "Revisá tus límites. ¿Algo que antes era “No” ahora es “Tal vez”? ¿Algo nuevo que no querés nunca? Actualizarlos también es parte del juego."}, {"id": 55, "level": 5, "mode": "Pareja", "type": "Match", "text": "Fantasear en voz alta con una tercera persona mientras cogemos: quién es, qué le hace a ella, qué miramos."}, {"id": 56, "level": 5, "mode": "Pareja", "type": "Match", "text": "Filmarnos cogiendo, mirarlo juntos y borrarlo delante de los dos. (Nunca en la nube.)"}, {"id": 57, "level": 5, "mode": "Pareja", "type": "Espejo", "text": "La fantasía que más te cuesta decir en voz alta. Se revela solo si ambos tocan “mostrar” al mismo tiempo. Después, se la cuentan mientras se tocan."}, {"id": 58, "level": 5, "mode": "Pareja", "type": "Misión", "text": "Una noche entera diseñada por ella: posiciones, juguetes, cuántas veces acaba, dónde acaba la otra persona, cuándo se termina. La otra persona solo puede decir “sí”, “más” o la palabra de pausa."}, {"id": 59, "level": 5, "mode": "Pareja", "type": "Match", "text": "Coger donde podrían ser vistos pero nadie ve: el balcón a oscuras, el auto en el garage, con la ventana abierta y la luz apagada."}, {"id": 60, "level": 5, "mode": "Pareja", "type": "Reto", "text": "Aftercare. Después, desnudos y abrazados, cada uno dice lo que más le calentó y una cosa que quiere distinta la próxima. La única respuesta permitida es “gracias”."}, {"id": 61, "level": 3, "mode": "Sola", "type": "Acción", "text": "Acostate boca arriba, piernas abiertas y una almohada bajo la cadera. Tocate el clítoris solo con la yema de un dedo, en círculos, durante tres minutos sin cambiar nada. Después, cambiá de dirección."}, {"id": 62, "level": 3, "mode": "Sola", "type": "Acción", "text": "Mojá dos dedos con lubricante o saliva y metelos despacio. Curvalos hacia el ombligo buscando el punto que se siente distinto. Quedate ahí presionando mientras con la otra mano te tocás el clítoris."}, {"id": 63, "level": 3, "mode": "Sola", "type": "Acción", "text": "Vibrador en la intensidad más baja, apoyado sobre la bombacha, nunca directo. Subí un nivel por minuto. Cuando ya no aguantes la tela, sacátela."}, {"id": 64, "level": 3, "mode": "Sola", "type": "Acción", "text": "Masturbate frente al espejo mirándote a los ojos hasta acabar o hasta que decidas parar. Prohibido apartar la mirada."}, {"id": 65, "level": 3, "mode": "Sola", "type": "Acción", "text": "En la ducha, chorro directo al clítoris, piernas abiertas y la espalda contra la pared. Alejalo y acercalo: que el agua te lleve al borde y te saque."}, {"id": 66, "level": 3, "mode": "Sola", "type": "Acción", "text": "Leé en voz alta una fantasía de tu Confesionario mientras te tocás. Si no escribiste ninguna, inventala en voz alta ahora mismo."}, {"id": 67, "level": 3, "mode": "Pareja", "type": "Acción", "text": "Ella se acuesta y no mueve un dedo. La otra persona le hace sexo oral diez minutos. Ella solo puede decir “más rápido”, “más lento” o “ahí”."}, {"id": 68, "level": 3, "mode": "Pareja", "type": "Acción", "text": "Sesenta y nueve. Quien se distraiga y pare primero tiene que hacer lo que la otra persona diga durante los próximos cinco minutos."}, {"id": 69, "level": 3, "mode": "Pareja", "type": "Acción", "text": "Ella arriba. Ella decide profundidad, ritmo y cuándo cambian de posición. La otra persona, con las manos detrás de la cabeza todo el tiempo."}, {"id": 70, "level": 3, "mode": "Pareja", "type": "Acción", "text": "Masturbarse cara a cara, mirándose, sin tocarse entre ustedes. Cada uno se toca como le gusta: la otra persona aprende mirando."}, {"id": 71, "level": 3, "mode": "Pareja", "type": "Acción", "text": "Penetración desde atrás (con lo que usen: pene, arnés, dedos o juguete) frente a un espejo, con ella mirando cómo la cogen."}, {"id": 72, "level": 3, "mode": "Pareja", "type": "Acción", "text": "La otra persona la toca con un juguete mientras le describe al oído, con todo detalle, lo que le va a hacer después."}, {"id": 73, "level": 4, "mode": "Sola", "type": "Acción", "text": "Edging de veinte minutos: llegá al borde cinco veces y pará. En la sexta, acabá lo más fuerte que puedas, sin taparte la boca."}, {"id": 74, "level": 4, "mode": "Sola", "type": "Acción", "text": "Vendate los ojos y usá un juguete. Imaginá que otra persona lo maneja y te da órdenes en voz alta. Obedecé cada una."}, {"id": 75, "level": 4, "mode": "Sola", "type": "Acción", "text": "Apretate los pezones (con los dedos o con pinzas) mientras te tocás, cada vez más fuerte a medida que te acercás. Soltalos justo al acabar y sentí la ola."}, {"id": 76, "level": 4, "mode": "Sola", "type": "Acción", "text": "Tocate en una posición que nunca usás: boca abajo sobre una almohada, de rodillas, en cuclillas. Acabá ahí."}, {"id": 77, "level": 4, "mode": "Sola", "type": "Acción", "text": "Doble estímulo: algo afuera en el clítoris y algo adentro (juguete o dedos). Manejá los dos a la vez, a ritmos distintos."}, {"id": 78, "level": 4, "mode": "Sola", "type": "Acción", "text": "Después del primer orgasmo, no pares. Bajá la intensidad, esperá treinta segundos y volvé. Seguí mientras quieras, no mientras “debas”."}, {"id": 79, "level": 4, "mode": "Pareja", "type": "Acción", "text": "Atale las manos a la cabecera. Montá encima y usá su cuerpo a tu ritmo hasta acabar. Recién después decidís si le das permiso para acabar."}, {"id": 80, "level": 4, "mode": "Pareja", "type": "Acción", "text": "Ella con los ojos vendados y las manos atadas con algo suave. La otra persona la lleva al borde tres veces con boca y dedos. Ella decide cuándo llega la cuarta. Gesto de pausa: abrir y cerrar la mano."}, {"id": 81, "level": 4, "mode": "Pareja", "type": "Acción", "text": "Nalgadas: ella dice cuántas y qué tan fuertes antes de empezar. Se cuentan en voz alta y entre una y otra va una caricia."}, {"id": 82, "level": 4, "mode": "Pareja", "type": "Acción", "text": "Tirón de pelo y palabras sucias durante la penetración. Intensidad del 1 al 5: ella dice el número y lo puede cambiar en cualquier momento."}, {"id": 83, "level": 4, "mode": "Pareja", "type": "Acción", "text": "Contra la pared, sobre la mesa, en el sillón: cambien de lugar tres veces sin terminar. En el cuarto lugar, ella decide cómo acaban."}, {"id": 84, "level": 4, "mode": "Pareja", "type": "Acción", "text": "Orgasmo prohibido: la otra persona no puede acabar hasta que ella haya acabado dos veces."}, {"id": 85, "level": 5, "mode": "Sola", "type": "Acción", "text": "Anal sola: mucho lubricante, un dedo o un juguete con base ancha, muy despacio, mientras te tocás el clítoris. Si no te gusta, parás. Si te gusta, descubriste algo."}, {"id": 86, "level": 5, "mode": "Sola", "type": "Acción", "text": "Filmate tocándote (o grabá solo el audio). Después miralo o escuchalo mientras te tocás otra vez. Guardalo en la bóveda o borralo."}, {"id": 87, "level": 5, "mode": "Sola", "type": "Acción", "text": "Probá el squirt: vejiga vacía, toalla abajo, estimulación interna firme en la pared de adelante. Si pasa, pasa. Si no, igual fue un gran rato."}, {"id": 88, "level": 5, "mode": "Sola", "type": "Acción", "text": "Escribile un mensaje bien explícito a alguien, real o imaginario, contándole qué te haría. No lo mandes. Leelo en voz alta tocándote."}, {"id": 89, "level": 5, "mode": "Sola", "type": "Acción", "text": "Una hora desnuda en tu casa. Cada vez que pases por un espejo, tocate treinta segundos mirándote."}, {"id": 90, "level": 5, "mode": "Sola", "type": "Acción", "text": "Tu fantasía más sucia del Confesionario: actuala sola, en voz alta, con juguetes, haciendo todas las voces."}, {"id": 91, "level": 5, "mode": "Pareja", "type": "Acción", "text": "Anal con ella al mando: mucho lubricante, muy despacio, y ella decide si, cuándo y cuánto. Clítoris estimulado todo el tiempo."}, {"id": 92, "level": 5, "mode": "Pareja", "type": "Acción", "text": "Ella elige dónde acaba la otra persona. Lo anuncia antes de empezar y no se negocia."}, {"id": 93, "level": 5, "mode": "Pareja", "type": "Acción", "text": "Coger con la ventana abierta y la luz apagada, sin callarse nada."}, {"id": 94, "level": 5, "mode": "Pareja", "type": "Acción", "text": "Ella dirige una escena de dominación de treinta minutos: órdenes, posiciones, castigos suaves y premios. Al terminar, aftercare obligatorio."}, {"id": 95, "level": 5, "mode": "Pareja", "type": "Acción", "text": "Vibrador a control remoto con el control en manos de la otra persona, en casa mientras hacen otra cosa, o afuera de forma discreta sin involucrar a nadie más. Ella se lo puede sacar cuando quiera."}, {"id": 96, "level": 5, "mode": "Pareja", "type": "Acción", "text": "Maratón: tantas veces como ella quiera en una noche, cambiando de posición o de juguete cada vez. Ella dice cuándo termina."}];
+const LEVELS = [
+  { n: "Chispa", c: "#F3D9C7", d: "Todavía con ropa. Palabras, miradas y la cabeza empezando a calentarse." },
+  { n: "Brasa", c: "#E8A15C", d: "Piel, manos, recuerdos que mojan." },
+  { n: "Fuego", c: "#C4502F", d: "Clítoris, boca, dedos, juguetes. Fantasías contadas enteras." },
+  { n: "Volcán", c: "#6E1F3A", d: "Poder, órdenes, ataduras, edging. Acuerden palabra de pausa antes." },
+  { n: "Sin filtro", c: "#1B1420", d: "Lo más crudo. Tus límites siguen activos; lo demás, sin vueltas." }
+];
+/* ---------- Ilustraciones ---------- */
+const ART_PAL = [
+  ["#f3d9c7", "#e2a98f", "#6E1F3A"], ["#e8a15c", "#a9492a", "#fff1e6"], ["#c4502f", "#5e1a32", "#ffd9b8"],
+  ["#6e1f3a", "#1f0a15", "#e8a15c"], ["#241a2b", "#050306", "#D4AF37"]
+];
+const TORSO = "M72 8 C58 40 98 56 86 78 C74 100 52 112 70 138 M128 8 C142 40 102 56 114 78 C126 100 148 112 130 138";
+const MOTIFS = {
+  lips: `<path class="draw" d="M40 72 C60 50 82 48 100 62 C118 48 140 50 160 72 C140 96 120 104 100 104 C80 104 60 96 40 72 Z"/><path class="draw" d="M40 72 C70 78 86 70 100 74 C114 70 130 78 160 72"/>`,
+  flame: `<path class="draw" d="M100 16 C122 48 142 66 132 98 C124 122 76 122 68 98 C60 72 86 60 90 38 C96 56 108 62 100 16 Z"/><path class="draw" d="M100 62 C110 78 118 88 112 102 C106 114 94 114 88 102 C84 92 94 84 100 62 Z"/>`,
+  candle: `<rect class="draw" x="86" y="70" width="28" height="60" rx="3"/><path class="draw" d="M100 30 C110 44 112 54 100 64 C88 54 90 44 100 30 Z"/>`,
+  eye: `<path class="draw" d="M26 70 Q100 8 174 70 Q100 132 26 70 Z"/><circle class="draw" cx="100" cy="70" r="20"/><circle cx="100" cy="70" r="7" fill="currentColor"/>`,
+  torso: `<path class="draw" d="${TORSO}"/><path class="draw" d="M92 44 C96 48 104 48 108 44" />`,
+  pair: `<g transform="translate(-26 0)"><path class="draw" d="${TORSO}"/></g><g transform="translate(26 0)" opacity=".75"><path class="draw" d="${TORSO}"/></g>`,
+  sheets: [30, 55, 80, 105].map((y, i) => `<path class="draw" style="animation-delay:${i * .15}s" d="M0 ${y} C40 ${y - 22} 70 ${y + 22} 110 ${y} S170 ${y - 20} 200 ${y}"/>`).join(""),
+  ribbon: `<path class="draw" d="M56 70 C56 38 100 38 100 70 C100 102 144 102 144 70 C144 38 100 38 100 70 C100 102 56 102 56 70 Z"/><path class="draw" d="M100 70 C92 100 80 116 62 132 M100 70 C108 100 120 116 138 132"/>`,
+  key: `<circle class="draw" cx="66" cy="70" r="24"/><circle class="draw" cx="66" cy="70" r="8"/><path class="draw" d="M90 70 H168 M146 70 V88 M160 70 V82"/>`,
+  mirror: `<ellipse class="draw" cx="100" cy="64" rx="38" ry="50"/><path class="draw" d="M78 40 C82 30 90 24 98 22 M100 114 V136 M86 136 H114"/>`,
+  drop: `<path class="draw" d="M100 16 C120 52 136 74 136 96 A36 36 0 0 1 64 96 C64 74 80 52 100 16 Z"/><path class="draw" d="M84 96 C84 106 90 114 100 116"/>`,
+  moon: `<path class="draw" d="M118 20 A52 52 0 1 0 150 108 A42 42 0 1 1 118 20 Z"/>`,
+  ripples: [10, 26, 44, 64].map((r, i) => `<circle class="draw" style="animation-delay:${i * .2}s" cx="100" cy="72" r="${r}" opacity="${1 - i * .2}"/>`).join("")
+};
+const RULES = [
+  [/espejo/, "mirror"],
+  [/\bata|pañuelo|corbata|vend|cabecera|dominaci|órdenes|obedec|nalgad|pinzas/, "ribbon"],
+  [/boca|lengua|lamé|lamer|chup|besa|beso|oral|labios|sesenta/, "lips"],
+  [/\bmir|ojos|observ|filma|vistos|ventana/, "eye"],
+  [/ducha|agua|hielo|squirt|mojad/, "drop"],
+  [/vela|\bluz|lámpara/, "candle"],
+  [/clítoris|tocate|tocás|masturb|dedos|vibrador|juguete|edging|borde/, "ripples"],
+  [/sueño|dorm/, "moon"],
+  [/sábana|cama|desnud|piel|masaje|aceite|prenda/, "sheets"]
+];
+function motifFor(c) {
+  if (c.type === "Espejo" && c.mode === "Pareja") return "mirror";
+  const t = c.text.toLowerCase();
+  for (const [re, m] of RULES) if (re.test(t)) return m;
+  if (c.type === "Confesionario") return "key";
+  if (c.mode === "Pareja") return "pair";
+  return ["moon", "sheets", "flame", "ribbon", "torso"][c.level - 1];
+}
+function drawArt(el, c) {
+  const [a, b, ink] = ART_PAL[c.level - 1], id = "g" + c.id;
+  el.innerHTML = `<svg viewBox="0 0 200 140" preserveAspectRatio="xMidYMid slice" aria-hidden="true" style="color:${ink}">
+    <defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs>
+    <rect width="200" height="140" fill="url(#${id})"/>
+    <circle class="glow" cx="100" cy="70" r="44" fill="${ink}"/>
+    <g fill="none" stroke="${ink}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${MOTIFS[motifFor(c)]}</g>
+  </svg>`;
+  const card = el.parentElement; card.classList.remove("enter"); void card.offsetWidth; card.classList.add("enter");
+}
+
+const WRITE_TYPES = ["Confesionario", "Espejo", "Carta de sueños"];
+
+const st = { level: 1, screen: "gate", prev: "home", deck: [], i: 0, deckMode: "Sola",
+  journal: [], match: null, espejo: null };
+const $ = id => document.getElementById(id);
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+function show(name) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.toggle("on", s.id === "s-" + name));
+  $("hdr").classList.toggle("hidden", name === "gate");
+  st.screen = name; window.scrollTo(0, 0);
+}
+
+function renderLevels(el, onPick) {
+  el.innerHTML = "";
+  LEVELS.forEach((L, i) => {
+    const b = document.createElement("button");
+    b.className = "lvl" + (st.level === i + 1 ? " sel" : "");
+    b.innerHTML = `<span class="sw" style="background:${L.c};${i === 4 ? "border:2px solid var(--oro)" : ""}"></span>${L.n}`;
+    b.onclick = () => onPick(i + 1);
+    el.appendChild(b);
+  });
+}
+function ask(msg, yes = "Sí") {
+  return new Promise(res => {
+    $("ask-msg").textContent = msg; $("ask-yes").textContent = yes;
+    const done = v => { $("ask").classList.remove("on"); res(v); };
+    $("ask-yes").onclick = () => done(true); $("ask-no").onclick = () => done(false);
+    $("ask").classList.add("on");
+  });
+}
+async function setLevel(l) {
+  if (l >= 4 && l > st.level && !(await ask(l === 5
+      ? "Sin filtro es el nivel más intenso. Podés volver cuando quieras, sin explicaciones. ¿Seguimos subiendo?"
+      : "Volcán trae poder, órdenes y ataduras. ¿Seguimos subiendo?", "Seguimos"))) return false;
+  st.level = l;
+  const L = LEVELS[l - 1];
+  $("lvl-name").textContent = L.n;
+  $("lvl-dot").style.background = L.c;
+  $("lvl-dot").style.outline = l === 5 ? "2px solid var(--oro)" : "none";
+  $("lvl-desc").textContent = L.d;
+  renderLevels($("levels"), setLevel);
+  return true;
+}
+
+/* ---------- Mazo ---------- */
+function startDeck(mode) {
+  st.deckMode = mode;
+  st.deck = shuffle(CARDS.filter(c => c.level === st.level && c.mode === mode));
+  st.i = 0; renderCard(); show("deck");
+}
+function renderCard() {
+  const c = st.deck[st.i];
+  if (!c) { show("deckend"); return; }
+  $("deck-card").classList.toggle("l5", c.level === 5);
+  drawArt($("deck-art"), c);
+  $("deck-tag").textContent = `${LEVELS[c.level - 1].n} · ${c.mode} · ${c.type}`;
+  $("deck-txt").textContent = c.text;
+  const writes = WRITE_TYPES.includes(c.type) && c.mode === "Sola";
+  $("deck-write").style.display = writes ? "block" : "none";
+  $("deck-save").style.display = writes ? "block" : "none";
+  $("deck-write").value = "";
+  $("deck-note").textContent = c.type === "Match" ? "Esta carta brilla más en Match secreto." :
+    c.type === "Espejo" && c.mode === "Pareja" ? "Pueden jugarla en Revelación en espejo." : "";
+  $("deck-prog").style.width = (st.i / st.deck.length * 100) + "%";
+}
+$("deck-next").onclick = () => { st.i++; renderCard(); };
+$("deck-save").onclick = () => {
+  const t = $("deck-write").value.trim();
+  if (!t) return;
+  st.journal.unshift({ q: st.deck[st.i].text, a: t, lvl: st.level });
+  $("deck-save").textContent = "Guardado bajo llave ✓";
+  setTimeout(() => { $("deck-save").textContent = "Guardar"; st.i++; renderCard(); }, 700);
+};
+$("deck-again").onclick = () => startDeck(st.deckMode);
+
+/* ---------- Traspaso de teléfono ---------- */
+function handoff(title, text, next) {
+  $("ho-title").textContent = title; $("ho-text").textContent = text;
+  $("ho-go").onclick = next; show("handoff");
+}
+
+/* ---------- Match secreto ---------- */
+function startMatch() {
+  const cards = shuffle(CARDS.filter(c => c.type === "Match" && c.level <= st.level));
+  st.match = { cards, p: 0, i: 0, ans: [[], []] };
+  handoff("Persona 1", `Van a responder ${cards.length} cartas. La otra persona no mira. Tus “No” no existen para nadie.`, () => { renderMQ(); show("mq"); });
+}
+function renderMQ() {
+  const m = st.match, c = m.cards[m.i];
+  $("mq-who").textContent = `Persona ${m.p + 1} · carta ${m.i + 1} de ${m.cards.length}`;
+  $("mq-tag").textContent = `${LEVELS[c.level - 1].n} · Match`;
+  $("mq-txt").textContent = c.text;
+  $("mq-card").classList.toggle("l5", c.level === 5);
+  drawArt($("mq-art"), c);
+  $("mq-prog").style.width = (m.i / m.cards.length * 100) + "%";
+}
+document.querySelectorAll("#s-mq [data-a]").forEach(b => b.onclick = () => {
+  const m = st.match;
+  m.ans[m.p][m.i] = b.dataset.a; m.i++;
+  if (m.i < m.cards.length) return renderMQ();
+  if (m.p === 0) {
+    m.p = 1; m.i = 0;
+    handoff("Pasale el teléfono", "Persona 2: respondé las mismas cartas. Lo que eligió la otra persona sigue oculto.", () => { renderMQ(); show("mq"); });
+  } else {
+    handoff("Listo, respondieron los dos", "Pónganse juntos para ver solo lo que coincide.", revealMatch);
+  }
+});
+function revealMatch() {
+  const m = st.match, out = [];
+  m.cards.forEach((c, i) => {
+    const a = [m.ans[0][i], m.ans[1][i]].sort().join("+");
+    if (a === "si+si") out.push(["match", "Coincidieron", c]);
+    else if (a === "si+tv") out.push(["", "Curiosidad compartida", c]);
+    else if (a === "tv+tv") out.push(["", "Zona para conversar", c]);
+  });
+  const order = { "Coincidieron": 0, "Curiosidad compartida": 1, "Zona para conversar": 2 };
+  out.sort((x, y) => order[x[1]] - order[y[1]]);
+  $("mres-list").innerHTML = out.length ? "" :
+    `<div class="result"><p>Esta vez no hubo coincidencias. Eso también es información valiosa: prueben otra temperatura cuando quieran.</p></div>`;
+  out.forEach(([cls, k, c]) => {
+    const d = document.createElement("div");
+    d.className = "result " + cls;
+    d.innerHTML = `<span class="k"></span><p style="font-family:Fraunces,serif;font-style:italic;font-size:18px"></p>`;
+    d.querySelector(".k").textContent = k; d.querySelector("p").textContent = c.text;
+    $("mres-list").appendChild(d);
+  });
+  show("mres");
+}
+
+/* ---------- Revelación en espejo ---------- */
+function startEspejo() {
+  const pool = CARDS.filter(c => c.type === "Espejo" && c.level <= st.level);
+  const q = pool[Math.floor(Math.random() * pool.length)];
+  st.espejo = { q, p: 0, ans: [] };
+  handoff("Persona 1", "Respondé sin que la otra persona mire.", () => renderEQ());
+}
+function renderEQ() {
+  const e = st.espejo;
+  $("eq-who").textContent = `Persona ${e.p + 1}`;
+  $("eq-txt").textContent = e.q.text;
+  drawArt($("eq-art"), e.q);
+  $("eq-write").value = ""; $("eq-show").checked = true;
+  show("eq");
+}
+$("eq-done").onclick = () => {
+  const e = st.espejo;
+  e.ans[e.p] = { t: $("eq-write").value.trim(), show: $("eq-show").checked };
+  if (e.p === 0) { e.p = 1; handoff("Pasale el teléfono", "Persona 2: tu turno. La respuesta anterior sigue oculta.", renderEQ); }
+  else handoff("Respondieron los dos", "Juntos, cuando estén listos.", revealEspejo);
+};
+function revealEspejo() {
+  const e = st.espejo;
+  $("eres-q").textContent = e.q.text;
+  $("eres-list").innerHTML = "";
+  e.ans.forEach((a, i) => {
+    const d = document.createElement("div");
+    d.className = "result";
+    d.innerHTML = `<span class="k">Persona ${i + 1}</span><p></p>`;
+    d.querySelector("p").textContent = !a.show ? "Esta vez quedó en privado." : (a.t || "(sin palabras)");
+    $("eres-list").appendChild(d);
+  });
+  show("eres");
+}
+
+/* ---------- Confesionario ---------- */
+function renderJournal() {
+  const l = $("journal-list"); l.innerHTML = "";
+  if (!st.journal.length) l.innerHTML = `<p class="muted">Tu confesionario está en blanco, como una sábana limpia.</p>`;
+  st.journal.forEach(j => {
+    const d = document.createElement("div"); d.className = "entry";
+    d.innerHTML = "<small></small><div></div>";
+    d.querySelector("small").textContent = `${LEVELS[j.lvl - 1].n} · ${j.q}`;
+    d.querySelector("div").textContent = j.a;
+    l.appendChild(d);
+  });
+}
+$("wipe").onclick = async () => { if (await ask("¿Borrar todo? No queda nada, ni siquiera para nosotras.", "Borrar todo")) { st.journal = []; renderJournal(); updateJournalCount(); } };
+function updateJournalCount() {
+  $("journal-count").textContent = st.journal.length ? `${st.journal.length} entrada(s) bajo llave.` : "Vacío, como una sábana limpia.";
+}
+
+/* ---------- Navegación ---------- */
+const routes = {
+  home: () => { updateJournalCount(); show("home"); },
+  sola: () => startDeck("Sola"),
+  pareja: () => show("pareja"),
+  "deck-pareja": () => startDeck("Pareja"),
+  match: startMatch,
+  espejo: startEspejo,
+  journal: () => { renderJournal(); show("journal"); }
+};
+document.addEventListener("click", e => {
+  const g = e.target.closest("[data-go]");
+  if (g) routes[g.dataset.go]();
+});
+$("home-link").onclick = routes.home;
+$("age").onchange = e => { $("enter").disabled = !e.target.checked; };
+$("enter").onclick = () => { setLevel(1); routes.home(); };
+
+/* ---------- Pausa, nivel, cierre rápido ---------- */
+$("pause-btn").onclick = () => $("pause").classList.add("on");
+$("p-resume").onclick = () => $("pause").classList.remove("on");
+$("p-lower").onclick = () => {
+  if (st.level > 1) setLevel(st.level - 1);
+  $("pause").classList.remove("on");
+  if (st.screen === "deck") startDeck(st.deckMode);
+};
+$("p-close").onclick = () => { $("pause").classList.remove("on"); $("neutral").classList.add("on"); };
+$("neutral-title").ondblclick = () => $("neutral").classList.remove("on");
+$("lvl-btn").onclick = () => { renderLevels($("levels2"), async l => { if (await setLevel(l)) { $("lvl-sheet").classList.remove("on"); if (st.screen === "deck") startDeck(st.deckMode); } }); $("lvl-sheet").classList.add("on"); };
+$("lvl-cancel").onclick = () => $("lvl-sheet").classList.remove("on");
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && st.screen !== "gate") { ["pause", "lvl-sheet", "ask"].forEach(id => $(id).classList.remove("on")); $("neutral").classList.add("on"); }
+});
+</script>

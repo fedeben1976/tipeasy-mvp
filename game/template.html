@@ -1,0 +1,543 @@
+<title>Velada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --noche: #1B1420; --ciruela: #3A2340; --vino: #6E1F3A; --ambar: #E8A15C;
+    --piel: #F3D9C7; --salvia: #8FA89A; --oro: #D4AF37;
+    --text: var(--piel); --muted: #bfa8b3; --surface: #2a1d30; --line: #4a3350;
+    --bg: var(--noche);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(120% 80% at 50% 0%, #2c1b33 0%, var(--bg) 60%) fixed, var(--bg);
+    color: var(--text); font: 16px/1.5 "DM Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app { max-width: 480px; margin: 0 auto; min-height: 100%; padding: 0 16px 32px; display: flex; flex-direction: column; }
+  header {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 0; background: linear-gradient(var(--bg) 70%, transparent);
+  }
+  header.hidden { visibility: hidden; }
+  .brand { font-family: Fraunces, serif; font-size: 20px; letter-spacing: .02em; display: flex; gap: 8px; align-items: center; cursor: pointer; }
+  .moon { width: 18px; height: 18px; border-radius: 50%; box-shadow: inset -5px -1px 0 0 var(--oro); transform: rotate(-20deg); }
+  .hbtns { display: flex; gap: 8px; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; }
+  .pill { min-height: 44px; padding: 0 16px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); display: inline-flex; align-items: center; gap: 8px; }
+  .pill .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .pause { background: var(--salvia); color: #13201a; border: 0; font-weight: 600; }
+  .screen { display: none; flex: 1; flex-direction: column; gap: 16px; animation: fade .45s ease-out; }
+  .screen.on { display: flex; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  h1, h2 { font-family: Fraunces, serif; font-weight: 400; margin: 0; line-height: 1.2; }
+  h1 { font-size: 32px; } h2 { font-size: 24px; }
+  p { margin: 0; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .center { text-align: center; }
+  .btn { min-height: 52px; padding: 0 20px; border-radius: 16px; background: var(--vino); color: var(--piel); font-weight: 600; width: 100%; }
+  .btn.ghost { background: transparent; border: 1px solid var(--line); font-weight: 500; }
+  .btn.soft { background: var(--surface); border: 1px solid var(--line); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .row { display: flex; gap: 10px; } .row > * { flex: 1; }
+  .levels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .lvl { padding: 10px 2px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); font-size: 12px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .lvl .sw { width: 22px; height: 22px; border-radius: 50%; }
+  .lvl.sel { border-color: var(--ambar); background: #3a2638; }
+  .tile { text-align: left; padding: 18px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; width: 100%; }
+  .tile b { font-family: Fraunces, serif; font-weight: 600; font-size: 20px; }
+  .card {
+    position: relative; border-radius: 24px; padding: 28px 22px; min-height: 300px;
+    background: linear-gradient(160deg, #3d2544, #24172a); border: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 18px; box-shadow: 0 20px 50px -20px #000a;
+  }
+  .card.l5 { border-color: var(--oro); }
+  .tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .card .txt { font-family: Fraunces, serif; font-style: italic; font-size: 22px; line-height: 1.4; flex: 1; }
+  textarea { width: 100%; min-height: 120px; border-radius: 14px; padding: 12px; background: #1f1524; color: var(--piel); border: 1px solid var(--line); font: inherit; resize: vertical; }
+  textarea:focus, button:focus-visible { outline: 2px solid var(--ambar); outline-offset: 2px; }
+  .progress { height: 4px; border-radius: 4px; background: var(--surface); overflow: hidden; }
+  .progress > i { display: block; height: 100%; background: var(--ambar); transition: width .4s ease-out; }
+  .answers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .answers button { min-height: 52px; border-radius: 14px; background: #1f1524; border: 1px solid var(--line); font-weight: 600; }
+  .result { padding: 16px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+  .result .k { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ambar); }
+  .result.match .k { color: var(--oro); }
+  .overlay { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; padding: 16px; background: #0e0a11ee; backdrop-filter: blur(8px); }
+  .overlay.on { display: flex; }
+  .sheet { max-width: 420px; width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .breath { width: 90px; height: 90px; border-radius: 50%; margin: 6px auto; background: radial-gradient(circle, var(--salvia), transparent 70%); animation: breath 10s ease-in-out infinite; }
+  @keyframes breath { 0%,100% { transform: scale(.6); opacity: .5; } 40% { transform: scale(1.1); opacity: 1; } }
+  .neutral { position: fixed; inset: 0; z-index: 30; display: none; background: #f7f7f5; color: #222; font-family: system-ui, sans-serif; padding: 20px; }
+  .neutral.on { display: block; }
+  .neutral h3 { margin: 8px 0 16px; font-size: 28px; user-select: none; }
+  .neutral .n { border-bottom: 1px solid #e3e3e0; padding: 12px 0; color: #666; }
+  .entry { padding: 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+  .entry small { color: var(--muted); display: block; margin-bottom: 4px; }
+  .spacer { flex: 1; }
+  .check { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; }
+  .check input { width: 22px; height: 22px; accent-color: var(--vino); margin-top: 2px; }
+  .art { margin: -28px -22px 0; height: 170px; border-radius: 24px 24px 0 0; overflow: hidden; position: relative; }
+  .art svg { display: block; width: 100%; height: 100%; }
+  .art .draw { stroke-dasharray: 900; stroke-dashoffset: 900; animation: draw 1.6s ease-out forwards; }
+  .art .glow { animation: pulse 5s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes pulse { 0%,100% { opacity: .1; transform: scale(.92); } 50% { opacity: .2; transform: scale(1.05); } }
+  .card.enter { animation: cardin .5s ease-out; }
+  @keyframes cardin { from { opacity: .2; transform: translateY(10px) rotate(-1deg); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .art .draw { stroke-dashoffset: 0; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+<div class="app">
+  <header id="hdr" class="hidden">
+    <div class="brand" id="home-link"><span class="moon"></span>Velada</div>
+    <div class="hbtns">
+      <button class="pill" id="lvl-btn" aria-label="Cambiar temperatura"><span class="dot" id="lvl-dot"></span><span id="lvl-name"></span></button>
+      <button class="pill pause" id="pause-btn">⏸ Pausa</button>
+    </div>
+  </header>
+
+  <!-- 18+ -->
+  <section class="screen on" id="s-gate">
+    <div class="spacer"></div>
+    <div class="center"><span class="moon" style="display:inline-block;width:44px;height:44px;box-shadow:inset -12px -2px 0 0 var(--oro)"></span></div>
+    <h1 class="center">Bienvenida a tu velada.</h1>
+    <p class="center muted">Acá no hay nada que demostrar. Solo cosas para descubrir, a tu ritmo.</p>
+    <label class="check"><input type="checkbox" id="age"> Tengo 18 años o más y quiero ver contenido sexual explícito.</label>
+    <p class="muted">Nada se guarda: lo que escribas vive solo en esta pestaña y desaparece al cerrarla. Tecla <b>Esc</b> o el botón Pausa → Cerrar: pantalla neutra al instante.</p>
+    <button class="btn" id="enter" disabled>Entrar</button>
+    <div class="spacer"></div>
+  </section>
+
+  <!-- Inicio -->
+  <section class="screen" id="s-home">
+    <h1>Buenas noches.</h1>
+    <p class="muted">¿Qué temperatura tiene tu noche? Podés bajarla cuando quieras.</p>
+    <div class="levels" id="levels"></div>
+    <p class="muted" id="lvl-desc"></p>
+    <button class="tile" data-go="sola"><b>Sola</b><span class="muted">Cartas para vos: confesionario, cuerpo, fantasías. Desde Fuego se suma el mazo Acción.</span></button>
+    <button class="tile" data-go="pareja"><b>En pareja</b><span class="muted">Mazo, Match secreto y Revelación en espejo, pasándose el teléfono.</span></button>
+    <button class="tile" data-go="journal"><b>Mi confesionario</b><span class="muted" id="journal-count">Vacío, como una sábana limpia.</span></button>
+  </section>
+
+  <!-- Menú pareja -->
+  <section class="screen" id="s-pareja">
+    <h2>En pareja</h2>
+    <p class="muted">Un solo teléfono. Cuando la app lo pida, se lo pasan sin mirar.</p>
+    <button class="tile" data-go="deck-pareja"><b>Mazo de pareja</b><span class="muted">Las cartas de esta temperatura, una por una.</span></button>
+    <button class="tile" data-go="match"><b>Match secreto</b><span class="muted">Sí / Tal vez / No. Solo se ven las coincidencias. Los “No” no existen para nadie.</span></button>
+    <button class="tile" data-go="espejo"><b>Revelación en espejo</b><span class="muted">Ambos responden antes de ver la respuesta del otro.</span></button>
+    <button class="btn ghost" data-go="home">Volver</button>
+  </section>
+
+  <!-- Mazo -->
+  <section class="screen" id="s-deck">
+    <div class="progress"><i id="deck-prog"></i></div>
+    <div class="card" id="deck-card">
+      <div class="art" id="deck-art"></div>
+      <div class="tag" id="deck-tag"></div>
+      <div class="txt" id="deck-txt"></div>
+      <textarea id="deck-write" placeholder="Escribí como si nadie fuera a leerlo, porque nadie lo va a leer."></textarea>
+    </div>
+    <p class="muted center" id="deck-note"></p>
+    <div class="row">
+      <button class="btn soft" id="deck-save">Guardar</button>
+      <button class="btn" id="deck-next">Siguiente</button>
+    </div>
+  </section>
+
+  <!-- Fin de mazo -->
+  <section class="screen" id="s-deckend">
+    <div class="spacer"></div>
+    <h2 class="center">Gracias por esta velada.</h2>
+    <p class="center muted">Lo que pasó hoy, alcanza.</p>
+    <button class="btn" id="deck-again">Mezclar otra vez</button>
+    <button class="btn ghost" data-go="home">Volver al inicio</button>
+    <div class="spacer"></div>
+  </section>
+
+  <!-- Traspaso -->
+  <section class="screen" id="s-handoff">
+    <div class="spacer"></div>
+    <div class="breath"></div>
+    <h2 class="center" id="ho-title"></h2>
+    <p class="center muted" id="ho-text"></p>
+    <button class="btn" id="ho-go">Estoy lista/o</button>
+    <div class="spacer"></div>
+  </section>
+
+  <!-- Match: responder -->
+  <section class="screen" id="s-mq">
+    <div class="progress"><i id="mq-prog"></i></div>
+    <p class="muted" id="mq-who"></p>
+    <div class="card" id="mq-card">
+      <div class="art" id="mq-art"></div>
+      <div class="tag" id="mq-tag"></div>
+      <div class="txt" id="mq-txt"></div>
+    </div>
+    <div class="answers">
+      <button data-a="si">Sí</button>
+      <button data-a="tv">Tal vez</button>
+      <button data-a="no">No</button>
+    </div>
+  </section>
+
+  <!-- Match: resultados -->
+  <section class="screen" id="s-mres">
+    <h2>Coincidieron en esto</h2>
+    <p class="muted">¿Lo conversan… o lo juegan? Los “No” no aparecen, y nadie sabe quién dijo qué.</p>
+    <div id="mres-list" style="display:flex;flex-direction:column;gap:10px"></div>
+    <button class="btn ghost" data-go="pareja">Volver</button>
+  </section>
+
+  <!-- Espejo: escribir -->
+  <section class="screen" id="s-eq">
+    <p class="muted" id="eq-who"></p>
+    <div class="card" id="eq-card">
+      <div class="art" id="eq-art"></div>
+      <div class="tag">Revelación en espejo</div>
+      <div class="txt" id="eq-txt"></div>
+      <textarea id="eq-write" placeholder="Tu respuesta. La otra persona no la ve hasta que respondan los dos."></textarea>
+    </div>
+    <label class="check"><input type="checkbox" id="eq-show" checked> Mostrar mi respuesta cuando revelemos</label>
+    <button class="btn" id="eq-done">Listo</button>
+  </section>
+
+  <!-- Espejo: revelación -->
+  <section class="screen" id="s-eres">
+    <h2>El espejo se aclara</h2>
+    <p class="card txt" id="eres-q" style="min-height:0"></p>
+    <div id="eres-list" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div class="row">
+      <button class="btn soft" data-go="espejo">Otra pregunta</button>
+      <button class="btn ghost" data-go="pareja">Volver</button>
+    </div>
+  </section>
+
+  <!-- Confesionario -->
+  <section class="screen" id="s-journal">
+    <h2>Mi confesionario</h2>
+    <p class="muted">Vive solo en esta pestaña. Al cerrarla, desaparece.</p>
+    <div id="journal-list" style="display:flex;flex-direction:column;gap:10px"></div>
+    <button class="btn soft" id="wipe">Borrar todo</button>
+    <button class="btn ghost" data-go="home">Volver</button>
+  </section>
+</div>
+
+<!-- Pausa -->
+<div class="overlay" id="pause" role="dialog" aria-modal="true" aria-label="Pausa">
+  <div class="sheet">
+    <div class="breath"></div>
+    <h2 class="center">Pausamos.</h2>
+    <p class="center muted">Nadie tiene que explicar nada. Respirá; cuando quieras, seguimos o cerramos.</p>
+    <button class="btn" id="p-resume" style="background:var(--salvia);color:#13201a">Seguir</button>
+    <button class="btn soft" id="p-lower">Bajar la temperatura</button>
+    <button class="btn ghost" id="p-close">Cerrar (pantalla neutra)</button>
+  </div>
+</div>
+
+<!-- Elegir nivel -->
+<div class="overlay" id="lvl-sheet" role="dialog" aria-modal="true" aria-label="Temperatura">
+  <div class="sheet">
+    <h2>¿Qué temperatura?</h2>
+    <div class="levels" id="levels2"></div>
+    <button class="btn ghost" id="lvl-cancel">Cerrar</button>
+  </div>
+</div>
+
+<!-- Confirmación -->
+<div class="overlay" id="ask" role="dialog" aria-modal="true" aria-label="Confirmar">
+  <div class="sheet">
+    <p id="ask-msg" style="font-family:Fraunces,serif;font-size:20px"></p>
+    <button class="btn" id="ask-yes">Sí</button>
+    <button class="btn ghost" id="ask-no">Mejor no</button>
+  </div>
+</div>
+
+<!-- Pantalla neutra -->
+<div class="neutral" id="neutral">
+  <h3 id="neutral-title">Notas</h3>
+  <div class="n">Lista del súper</div>
+  <div class="n">Ideas para el finde</div>
+  <div class="n">Turnos</div>
+  <p style="color:#aaa;font-size:13px;margin-top:24px">Tocá dos veces “Notas” para volver.</p>
+</div>
+
+<script>
+const CARDS = /*__CARDS__*/[];
+const LEVELS = [
+  { n: "Chispa", c: "#F3D9C7", d: "Todavía con ropa. Palabras, miradas y la cabeza empezando a calentarse." },
+  { n: "Brasa", c: "#E8A15C", d: "Piel, manos, recuerdos que mojan." },
+  { n: "Fuego", c: "#C4502F", d: "Clítoris, boca, dedos, juguetes. Fantasías contadas enteras." },
+  { n: "Volcán", c: "#6E1F3A", d: "Poder, órdenes, ataduras, edging. Acuerden palabra de pausa antes." },
+  { n: "Sin filtro", c: "#1B1420", d: "Lo más crudo. Tus límites siguen activos; lo demás, sin vueltas." }
+];
+/* ---------- Ilustraciones ---------- */
+const ART_PAL = [
+  ["#f3d9c7", "#e2a98f", "#6E1F3A"], ["#e8a15c", "#a9492a", "#fff1e6"], ["#c4502f", "#5e1a32", "#ffd9b8"],
+  ["#6e1f3a", "#1f0a15", "#e8a15c"], ["#241a2b", "#050306", "#D4AF37"]
+];
+const TORSO = "M72 8 C58 40 98 56 86 78 C74 100 52 112 70 138 M128 8 C142 40 102 56 114 78 C126 100 148 112 130 138";
+const MOTIFS = {
+  lips: `<path class="draw" d="M40 72 C60 50 82 48 100 62 C118 48 140 50 160 72 C140 96 120 104 100 104 C80 104 60 96 40 72 Z"/><path class="draw" d="M40 72 C70 78 86 70 100 74 C114 70 130 78 160 72"/>`,
+  flame: `<path class="draw" d="M100 16 C122 48 142 66 132 98 C124 122 76 122 68 98 C60 72 86 60 90 38 C96 56 108 62 100 16 Z"/><path class="draw" d="M100 62 C110 78 118 88 112 102 C106 114 94 114 88 102 C84 92 94 84 100 62 Z"/>`,
+  candle: `<rect class="draw" x="86" y="70" width="28" height="60" rx="3"/><path class="draw" d="M100 30 C110 44 112 54 100 64 C88 54 90 44 100 30 Z"/>`,
+  eye: `<path class="draw" d="M26 70 Q100 8 174 70 Q100 132 26 70 Z"/><circle class="draw" cx="100" cy="70" r="20"/><circle cx="100" cy="70" r="7" fill="currentColor"/>`,
+  torso: `<path class="draw" d="${TORSO}"/><path class="draw" d="M92 44 C96 48 104 48 108 44" />`,
+  pair: `<g transform="translate(-26 0)"><path class="draw" d="${TORSO}"/></g><g transform="translate(26 0)" opacity=".75"><path class="draw" d="${TORSO}"/></g>`,
+  sheets: [30, 55, 80, 105].map((y, i) => `<path class="draw" style="animation-delay:${i * .15}s" d="M0 ${y} C40 ${y - 22} 70 ${y + 22} 110 ${y} S170 ${y - 20} 200 ${y}"/>`).join(""),
+  ribbon: `<path class="draw" d="M56 70 C56 38 100 38 100 70 C100 102 144 102 144 70 C144 38 100 38 100 70 C100 102 56 102 56 70 Z"/><path class="draw" d="M100 70 C92 100 80 116 62 132 M100 70 C108 100 120 116 138 132"/>`,
+  key: `<circle class="draw" cx="66" cy="70" r="24"/><circle class="draw" cx="66" cy="70" r="8"/><path class="draw" d="M90 70 H168 M146 70 V88 M160 70 V82"/>`,
+  mirror: `<ellipse class="draw" cx="100" cy="64" rx="38" ry="50"/><path class="draw" d="M78 40 C82 30 90 24 98 22 M100 114 V136 M86 136 H114"/>`,
+  drop: `<path class="draw" d="M100 16 C120 52 136 74 136 96 A36 36 0 0 1 64 96 C64 74 80 52 100 16 Z"/><path class="draw" d="M84 96 C84 106 90 114 100 116"/>`,
+  moon: `<path class="draw" d="M118 20 A52 52 0 1 0 150 108 A42 42 0 1 1 118 20 Z"/>`,
+  ripples: [10, 26, 44, 64].map((r, i) => `<circle class="draw" style="animation-delay:${i * .2}s" cx="100" cy="72" r="${r}" opacity="${1 - i * .2}"/>`).join("")
+};
+const RULES = [
+  [/espejo/, "mirror"],
+  [/\bata|pañuelo|corbata|vend|cabecera|dominaci|órdenes|obedec|nalgad|pinzas/, "ribbon"],
+  [/boca|lengua|lamé|lamer|chup|besa|beso|oral|labios|sesenta/, "lips"],
+  [/\bmir|ojos|observ|filma|vistos|ventana/, "eye"],
+  [/ducha|agua|hielo|squirt|mojad/, "drop"],
+  [/vela|\bluz|lámpara/, "candle"],
+  [/clítoris|tocate|tocás|masturb|dedos|vibrador|juguete|edging|borde/, "ripples"],
+  [/sueño|dorm/, "moon"],
+  [/sábana|cama|desnud|piel|masaje|aceite|prenda/, "sheets"]
+];
+function motifFor(c) {
+  if (c.type === "Espejo" && c.mode === "Pareja") return "mirror";
+  const t = c.text.toLowerCase();
+  for (const [re, m] of RULES) if (re.test(t)) return m;
+  if (c.type === "Confesionario") return "key";
+  if (c.mode === "Pareja") return "pair";
+  return ["moon", "sheets", "flame", "ribbon", "torso"][c.level - 1];
+}
+function drawArt(el, c) {
+  const [a, b, ink] = ART_PAL[c.level - 1], id = "g" + c.id;
+  el.innerHTML = `<svg viewBox="0 0 200 140" preserveAspectRatio="xMidYMid slice" aria-hidden="true" style="color:${ink}">
+    <defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs>
+    <rect width="200" height="140" fill="url(#${id})"/>
+    <circle class="glow" cx="100" cy="70" r="44" fill="${ink}"/>
+    <g fill="none" stroke="${ink}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${MOTIFS[motifFor(c)]}</g>
+  </svg>`;
+  const card = el.parentElement; card.classList.remove("enter"); void card.offsetWidth; card.classList.add("enter");
+}
+
+const WRITE_TYPES = ["Confesionario", "Espejo", "Carta de sueños"];
+
+const st = { level: 1, screen: "gate", prev: "home", deck: [], i: 0, deckMode: "Sola",
+  journal: [], match: null, espejo: null };
+const $ = id => document.getElementById(id);
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+function show(name) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.toggle("on", s.id === "s-" + name));
+  $("hdr").classList.toggle("hidden", name === "gate");
+  st.screen = name; window.scrollTo(0, 0);
+}
+
+function renderLevels(el, onPick) {
+  el.innerHTML = "";
+  LEVELS.forEach((L, i) => {
+    const b = document.createElement("button");
+    b.className = "lvl" + (st.level === i + 1 ? " sel" : "");
+    b.innerHTML = `<span class="sw" style="background:${L.c};${i === 4 ? "border:2px solid var(--oro)" : ""}"></span>${L.n}`;
+    b.onclick = () => onPick(i + 1);
+    el.appendChild(b);
+  });
+}
+function ask(msg, yes = "Sí") {
+  return new Promise(res => {
+    $("ask-msg").textContent = msg; $("ask-yes").textContent = yes;
+    const done = v => { $("ask").classList.remove("on"); res(v); };
+    $("ask-yes").onclick = () => done(true); $("ask-no").onclick = () => done(false);
+    $("ask").classList.add("on");
+  });
+}
+async function setLevel(l) {
+  if (l >= 4 && l > st.level && !(await ask(l === 5
+      ? "Sin filtro es el nivel más intenso. Podés volver cuando quieras, sin explicaciones. ¿Seguimos subiendo?"
+      : "Volcán trae poder, órdenes y ataduras. ¿Seguimos subiendo?", "Seguimos"))) return false;
+  st.level = l;
+  const L = LEVELS[l - 1];
+  $("lvl-name").textContent = L.n;
+  $("lvl-dot").style.background = L.c;
+  $("lvl-dot").style.outline = l === 5 ? "2px solid var(--oro)" : "none";
+  $("lvl-desc").textContent = L.d;
+  renderLevels($("levels"), setLevel);
+  return true;
+}
+
+/* ---------- Mazo ---------- */
+function startDeck(mode) {
+  st.deckMode = mode;
+  st.deck = shuffle(CARDS.filter(c => c.level === st.level && c.mode === mode));
+  st.i = 0; renderCard(); show("deck");
+}
+function renderCard() {
+  const c = st.deck[st.i];
+  if (!c) { show("deckend"); return; }
+  $("deck-card").classList.toggle("l5", c.level === 5);
+  drawArt($("deck-art"), c);
+  $("deck-tag").textContent = `${LEVELS[c.level - 1].n} · ${c.mode} · ${c.type}`;
+  $("deck-txt").textContent = c.text;
+  const writes = WRITE_TYPES.includes(c.type) && c.mode === "Sola";
+  $("deck-write").style.display = writes ? "block" : "none";
+  $("deck-save").style.display = writes ? "block" : "none";
+  $("deck-write").value = "";
+  $("deck-note").textContent = c.type === "Match" ? "Esta carta brilla más en Match secreto." :
+    c.type === "Espejo" && c.mode === "Pareja" ? "Pueden jugarla en Revelación en espejo." : "";
+  $("deck-prog").style.width = (st.i / st.deck.length * 100) + "%";
+}
+$("deck-next").onclick = () => { st.i++; renderCard(); };
+$("deck-save").onclick = () => {
+  const t = $("deck-write").value.trim();
+  if (!t) return;
+  st.journal.unshift({ q: st.deck[st.i].text, a: t, lvl: st.level });
+  $("deck-save").textContent = "Guardado bajo llave ✓";
+  setTimeout(() => { $("deck-save").textContent = "Guardar"; st.i++; renderCard(); }, 700);
+};
+$("deck-again").onclick = () => startDeck(st.deckMode);
+
+/* ---------- Traspaso de teléfono ---------- */
+function handoff(title, text, next) {
+  $("ho-title").textContent = title; $("ho-text").textContent = text;
+  $("ho-go").onclick = next; show("handoff");
+}
+
+/* ---------- Match secreto ---------- */
+function startMatch() {
+  const cards = shuffle(CARDS.filter(c => c.type === "Match" && c.level <= st.level));
+  st.match = { cards, p: 0, i: 0, ans: [[], []] };
+  handoff("Persona 1", `Van a responder ${cards.length} cartas. La otra persona no mira. Tus “No” no existen para nadie.`, () => { renderMQ(); show("mq"); });
+}
+function renderMQ() {
+  const m = st.match, c = m.cards[m.i];
+  $("mq-who").textContent = `Persona ${m.p + 1} · carta ${m.i + 1} de ${m.cards.length}`;
+  $("mq-tag").textContent = `${LEVELS[c.level - 1].n} · Match`;
+  $("mq-txt").textContent = c.text;
+  $("mq-card").classList.toggle("l5", c.level === 5);
+  drawArt($("mq-art"), c);
+  $("mq-prog").style.width = (m.i / m.cards.length * 100) + "%";
+}
+document.querySelectorAll("#s-mq [data-a]").forEach(b => b.onclick = () => {
+  const m = st.match;
+  m.ans[m.p][m.i] = b.dataset.a; m.i++;
+  if (m.i < m.cards.length) return renderMQ();
+  if (m.p === 0) {
+    m.p = 1; m.i = 0;
+    handoff("Pasale el teléfono", "Persona 2: respondé las mismas cartas. Lo que eligió la otra persona sigue oculto.", () => { renderMQ(); show("mq"); });
+  } else {
+    handoff("Listo, respondieron los dos", "Pónganse juntos para ver solo lo que coincide.", revealMatch);
+  }
+});
+function revealMatch() {
+  const m = st.match, out = [];
+  m.cards.forEach((c, i) => {
+    const a = [m.ans[0][i], m.ans[1][i]].sort().join("+");
+    if (a === "si+si") out.push(["match", "Coincidieron", c]);
+    else if (a === "si+tv") out.push(["", "Curiosidad compartida", c]);
+    else if (a === "tv+tv") out.push(["", "Zona para conversar", c]);
+  });
+  const order = { "Coincidieron": 0, "Curiosidad compartida": 1, "Zona para conversar": 2 };
+  out.sort((x, y) => order[x[1]] - order[y[1]]);
+  $("mres-list").innerHTML = out.length ? "" :
+    `<div class="result"><p>Esta vez no hubo coincidencias. Eso también es información valiosa: prueben otra temperatura cuando quieran.</p></div>`;
+  out.forEach(([cls, k, c]) => {
+    const d = document.createElement("div");
+    d.className = "result " + cls;
+    d.innerHTML = `<span class="k"></span><p style="font-family:Fraunces,serif;font-style:italic;font-size:18px"></p>`;
+    d.querySelector(".k").textContent = k; d.querySelector("p").textContent = c.text;
+    $("mres-list").appendChild(d);
+  });
+  show("mres");
+}
+
+/* ---------- Revelación en espejo ---------- */
+function startEspejo() {
+  const pool = CARDS.filter(c => c.type === "Espejo" && c.level <= st.level);
+  const q = pool[Math.floor(Math.random() * pool.length)];
+  st.espejo = { q, p: 0, ans: [] };
+  handoff("Persona 1", "Respondé sin que la otra persona mire.", () => renderEQ());
+}
+function renderEQ() {
+  const e = st.espejo;
+  $("eq-who").textContent = `Persona ${e.p + 1}`;
+  $("eq-txt").textContent = e.q.text;
+  drawArt($("eq-art"), e.q);
+  $("eq-write").value = ""; $("eq-show").checked = true;
+  show("eq");
+}
+$("eq-done").onclick = () => {
+  const e = st.espejo;
+  e.ans[e.p] = { t: $("eq-write").value.trim(), show: $("eq-show").checked };
+  if (e.p === 0) { e.p = 1; handoff("Pasale el teléfono", "Persona 2: tu turno. La respuesta anterior sigue oculta.", renderEQ); }
+  else handoff("Respondieron los dos", "Juntos, cuando estén listos.", revealEspejo);
+};
+function revealEspejo() {
+  const e = st.espejo;
+  $("eres-q").textContent = e.q.text;
+  $("eres-list").innerHTML = "";
+  e.ans.forEach((a, i) => {
+    const d = document.createElement("div");
+    d.className = "result";
+    d.innerHTML = `<span class="k">Persona ${i + 1}</span><p></p>`;
+    d.querySelector("p").textContent = !a.show ? "Esta vez quedó en privado." : (a.t || "(sin palabras)");
+    $("eres-list").appendChild(d);
+  });
+  show("eres");
+}
+
+/* ---------- Confesionario ---------- */
+function renderJournal() {
+  const l = $("journal-list"); l.innerHTML = "";
+  if (!st.journal.length) l.innerHTML = `<p class="muted">Tu confesionario está en blanco, como una sábana limpia.</p>`;
+  st.journal.forEach(j => {
+    const d = document.createElement("div"); d.className = "entry";
+    d.innerHTML = "<small></small><div></div>";
+    d.querySelector("small").textContent = `${LEVELS[j.lvl - 1].n} · ${j.q}`;
+    d.querySelector("div").textContent = j.a;
+    l.appendChild(d);
+  });
+}
+$("wipe").onclick = async () => { if (await ask("¿Borrar todo? No queda nada, ni siquiera para nosotras.", "Borrar todo")) { st.journal = []; renderJournal(); updateJournalCount(); } };
+function updateJournalCount() {
+  $("journal-count").textContent = st.journal.length ? `${st.journal.length} entrada(s) bajo llave.` : "Vacío, como una sábana limpia.";
+}
+
+/* ---------- Navegación ---------- */
+const routes = {
+  home: () => { updateJournalCount(); show("home"); },
+  sola: () => startDeck("Sola"),
+  pareja: () => show("pareja"),
+  "deck-pareja": () => startDeck("Pareja"),
+  match: startMatch,
+  espejo: startEspejo,
+  journal: () => { renderJournal(); show("journal"); }
+};
+document.addEventListener("click", e => {
+  const g = e.target.closest("[data-go]");
+  if (g) routes[g.dataset.go]();
+});
+$("home-link").onclick = routes.home;
+$("age").onchange = e => { $("enter").disabled = !e.target.checked; };
+$("enter").onclick = () => { setLevel(1); routes.home(); };
+
+/* ---------- Pausa, nivel, cierre rápido ---------- */
+$("pause-btn").onclick = () => $("pause").classList.add("on");
+$("p-resume").onclick = () => $("pause").classList.remove("on");
+$("p-lower").onclick = () => {
+  if (st.level > 1) setLevel(st.level - 1);
+  $("pause").classList.remove("on");
+  if (st.screen === "deck") startDeck(st.deckMode);
+};
+$("p-close").onclick = () => { $("pause").classList.remove("on"); $("neutral").classList.add("on"); };
+$("neutral-title").ondblclick = () => $("neutral").classList.remove("on");
+$("lvl-btn").onclick = () => { renderLevels($("levels2"), async l => { if (await setLevel(l)) { $("lvl-sheet").classList.remove("on"); if (st.screen === "deck") startDeck(st.deckMode); } }); $("lvl-sheet").classList.add("on"); };
+$("lvl-cancel").onclick = () => $("lvl-sheet").classList.remove("on");
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && st.screen !== "gate") { ["pause", "lvl-sheet", "ask"].forEach(id => $(id).classList.remove("on")); $("neutral").classList.add("on"); }
+});
+</script>
